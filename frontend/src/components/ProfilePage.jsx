@@ -6,11 +6,11 @@ const translations = {
         eyebrow: 'Profile',
         title: 'Your anonymous hub',
         subtitle: 'Manage your identity, links, and friendships in one place.',
-        stats: { links: 'Links', friends: 'Friends', messages: 'Messages' },
+        stats: { links: 'Links', following: 'Following', messages: 'Messages' },
         linksTitle: 'Temporary links',
         linksEmpty: 'No links yet. Create one from Home.',
-        friendsTitle: 'Friends list',
-        friendsEmpty: 'No friends yet. Add some from Search.',
+        followingTitle: 'Following',
+        followingEmpty: 'Not following anyone yet. Search for users to follow.',
         actions: { logout: 'Logout', edit: 'Edit profile', viewLinks: 'View links', viewMessages: 'Messages', login: 'Login', signup: 'Signup', settings: 'Settings' },
         badges: { active: 'Active', expiring: 'Expiring soon' },
         guestTitle: 'Guest Mode',
@@ -55,7 +55,7 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
         { id: 2, label: 'Feedback form', status: 'expiring', timeLeft: '28m' },
     ];
 
-    const mockFriends = [
+    const mockFollowing = [
         { id: 1, name: 'alex_johnson' },
         { id: 2, name: 'maria_garcia' },
         { id: 3, name: 'sarah_smith' },
@@ -66,9 +66,9 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
 
     const stats = useMemo(() => ({
         links: mockLinks.length,
-        friends: mockFriends.length,
+        following: mockFollowing.length,
         messages: 12,
-    }), [mockLinks.length, mockFriends.length]);
+    }), [mockLinks.length, mockFollowing.length]);
 
     return (
         <div className={`profile-page ${isRTL ? 'rtl' : ''}`}>
@@ -114,8 +114,8 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
                         <p className="stat-value">{stats.links}</p>
                     </div>
                     <div className="stat-card">
-                        <p className="stat-label">{t.stats.friends}</p>
-                        <p className="stat-value">{stats.friends}</p>
+                        <p className="stat-label">{t.stats.following}</p>
+                        <p className="stat-value">{stats.following}</p>
                     </div>
                     <div className="stat-card">
                         <p className="stat-label">{t.stats.messages}</p>
@@ -179,24 +179,25 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
             <section className="profile-card card">
                 <div className="card-header">
                     <div>
-                        <p className="eyebrow subtle">{t.friendsTitle}</p>
-                        <h2 className="card-title">{t.stats.friends}</h2>
+                        <p className="eyebrow subtle">{t.followingTitle}</p>
+                        <h2 className="card-title">{t.stats.following}</h2>
                     </div>
-                    <span className="count-badge">{mockFriends.length}</span>
+                    <span className="count-badge">{mockFollowing.length}</span>
                 </div>
-                {mockFriends.length === 0 ? (
+                {mockFollowing.length === 0 ? (
                     <div className="empty-state">
-                        <div className="empty-icon">👥</div>
-                        <p className="empty-title">{t.friendsEmpty}</p>
+                        <div className="empty-icon">👤</div>
+                        <p className="empty-title">{t.followingEmpty}</p>
                     </div>
                 ) : (
                     <div className="chips-grid">
-                        {mockFriends.map((friend) => (
-                            <span key={friend.id} className="friend-chip">
+                        {mockFollowing.map((user) => (
+                            <span key={user.id} className="friend-chip">
                                 <span className="avatar-dot"></span>
-                                {friend.name}
+                                {user.name}
                             </span>
                         ))}
+                    </div>
                     </div>
                 )}
             </section>

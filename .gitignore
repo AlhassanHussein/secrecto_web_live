@@ -1,3 +1,8 @@
+# Environment variables (NEVER commit .env with real secrets)
+.env
+.env.local
+.env.*.local
+
 # Logs
 logs
 *.log
@@ -11,6 +16,14 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Database files
+*.db
+data/
+
+# Caddy cache
+caddy_data/
+caddy_config/
 
 # Editor directories and files
 .vscode/*

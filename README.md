@@ -2,39 +2,129 @@
 
 A modern web application for anonymous messaging, temporary links, and private communication built with React (Vite) frontend and FastAPI backend.
 
-## 🚀 Quick Start with Docker Compose
+**Status:** ✅ Production-Ready with Enterprise-Grade Infrastructure
+
+## 🚀 Quick Start
 
 ### Prerequisites
 - Docker and Docker Compose installed
-- Git (optional, for cloning)
+- 2GB RAM minimum, 5GB disk space
 
-### 1. Clone and Setup
+### 1. Setup Environment
 ```bash
+# Clone repository
 git clone <your-repo>
 cd saytruth
-cp .env.example .env  # Optional: customize environment variables
+
+# Create .env file with configuration
+cp .env.example .env
+
+# Generate secure keys
+export JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+export ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+# Update .env with your values
+sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
+sed -i "s/ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$ENCRYPTION_KEY/" .env
 ```
 
-### 2. Start All Services
+### 2. Validate Setup
 ```bash
-docker compose up --build
+bash setup.sh
 ```
 
-This will start three services in order:
-1. **Database** (SQLite) - Health check enabled
-2. **Backend API** (FastAPI) - Port 8000
-3. **Frontend** (React + Vite) - Port 3000
+This verifies:
+- ✅ .env configuration
+- ✅ Encryption keys valid
+- ✅ Docker installed
+- ✅ All required variables set
 
-### 3. Access the Application
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
+### 3. Start All Services
+```bash
+docker-compose up -d
+```
+
+Services start in order:
+1. **Database** (SQLite) - /data/app.db
+2. **Backend API** (FastAPI) - :8000
+3. **Frontend** (React + Vite) - :5173
+4. **Nginx** (Internal routing) - :80 (internal)
+5. **Caddy** (HTTPS proxy) - :80, :443
+
+### 4. Access Application
+```bash
+# Add to /etc/hosts (Linux/Mac)
+echo "127.0.0.1 saytruth.local" >> /etc/hosts
+
+# Access via HTTPS
+https://saytruth.local/
+
+# API documentation
+https://saytruth.local/api/docs
+
+# Health check
+curl -k https://saytruth.local/health
+```
+
+## � Documentation
+
+Comprehensive documentation for the SayTruth platform:
+
+| Document | Purpose |
+|----------|---------|
+| **[INFRASTRUCTURE.md](INFRASTRUCTURE.md)** | Complete infrastructure setup guide, deployment instructions, troubleshooting |
+| **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)** | Security review, threat assessment, compliance verification |
+| **[LINK_SYSTEM_IMPLEMENTATION_SUMMARY.md](LINK_SYSTEM_IMPLEMENTATION_SUMMARY.md)** | Temporary anonymous links system documentation |
+| **[README_INBOX_SYSTEM.md](README_INBOX_SYSTEM.md)** | Inbox system architecture and features |
+
+## 🔐 Security Features
+
+✅ **HTTPS/TLS** - Automatic certificate generation via Caddy  
+✅ **Message Encryption** - Fernet symmetric encryption at rest  
+✅ **Rate Limiting** - Per-IP protection (60 req/min general, 20 req/hr auth)  
+✅ **Network Isolation** - Services in private bridge network  
+✅ **Security Headers** - HSTS, X-Frame-Options, CSP, etc.  
+✅ **Secrets Management** - All configuration via .env (never in code)  
+✅ **Database Security** - Encrypted messages, restricted access  
+
+## 🚀 Infrastructure Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│  INTERNET (HTTPS via Caddy - ports 80/443)  │
+└──────────────────┬──────────────────────────┘
+                   ▼
+          ┌─────────────────┐
+          │     CADDY       │ HTTPS/TLS + Security Headers
+          │ Reverse Proxy   │ Domain: $DOMAIN
+          │  :80, :443      │ Auto-HTTPS/Self-signed
+          └────────┬────────┘
+                   ▼ (HTTP port 80, internal)
+          ┌─────────────────┐
+          │     NGINX       │ Internal Routing
+          │ :80 (internal)  │ /api/ → backend
+          └────┬────────┬───┘ / → frontend
+               │        │
+         /api/ │        │ /
+              ▼        ▼
+         ┌───────┐ ┌────────┐
+         │FastAPI│ │ React  │
+         │:8000  │ │:5173   │
+         └───┬───┘ └────────┘
+             │
+             ▼
+         ┌──────────┐
+         │ SQLite   │
+         │/data/    │
+         │app.db    │
+         └──────────┘
+```
 
 ## 📦 Services Overview
 
 ### Frontend Container (saytruth-app)
 - **Tech**: React 18 + Vite
-- **Port**: 3000 (maps to container port 5173)
+- **Port**: 5173 (internal)
 - **Features**: 
   - Home, Links, Search, Messages, Profile tabs
   - Multi-language support (EN, AR, ES)
@@ -43,17 +133,40 @@ This will start three services in order:
 
 ### Backend Container (saytruth-api)
 - **Tech**: Python 3.11 + FastAPI
-- **Port**: 8000
+- **Port**: 8000 (internal)
 - **Features**:
   - JWT authentication
   - REST API endpoints
   - SQLite database integration
-  - Auto-migration on startup
+  - Message encryption (Fernet)
+  - Anonymous link system
+
+### Caddy (Reverse Proxy)
+- **Tech**: Caddy (Alpine Linux)
+- **Ports**: 80, 443 (public)
+- **Features**:
+  - HTTPS/TLS termination
+  - Automatic certificate generation
+  - Security headers
+  - Gzip compression
+
+### Nginx (Internal Router)
+- **Tech**: Nginx (Alpine Linux)
+- **Port**: 80 (internal only)
+- **Features**:
+  - Internal service routing
+  - Rate limiting per IP
+  - Load balancing
+  - Security headers
 
 ### Database Container (saytruth-db)
-- **Tech**: SQLite (Alpine Linux + sqlite3)
-- **Purpose**: Development/debugging
-- **Note**: SQLite runs in-process via volume mount
+- **Tech**: SQLite
+- **Path**: /data/app.db
+- **Features**: 
+  - Persistent volume mount
+  - Health checks enabled
+  - No external access
+
 
 ## 🗄️ Database Schema
 

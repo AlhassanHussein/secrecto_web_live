@@ -10,16 +10,24 @@ import SignupPage from './components/SignupPage';
 import PasswordRecoveryPage from './components/PasswordRecoveryPage';
 import SettingsPage from './components/SettingsPage';
 import ProfilePage from './components/ProfilePage';
+import UserProfilePage from './components/UserProfilePage';
 import CreateLinkSection from './components/CreateLinkSection';
 import ActiveLinksSection from './components/ActiveLinksSection';
+import HomeTab from './components/HomeTab';
+import PublicLinkPage from './components/PublicLinkPage';
+import PrivateLinkPage from './components/PrivateLinkPage';
 import './App.css';
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [activeLinks, setActiveLinks] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [showAuthPage, setShowAuthPage] = useState(null); // 'login', 'signup', 'recovery', 'settings'
+  const [linkPageType, setLinkPageType] = useState(null); // 'public' or 'private'
+  const [linkId, setLinkId] = useState(null); // public_id or private_id
+  const [language, setLanguage] = useState('EN');
 
   useEffect(() => {
     // Check if user is already logged in
@@ -34,6 +42,20 @@ function App() {
       }
     };
     checkAuth();
+
+    // Parse URL for link pages
+    const path = window.location.pathname;
+    if (path.startsWith('/link/private/')) {
+      const privateId = path.split('/link/private/')[1];
+      if (privateId) {
+        handleViewPrivateLink(privateId);
+      }
+    } else if (path.startsWith('/link/')) {
+      const publicId = path.split('/link/')[1];
+      if (publicId) {
+        handleViewPublicLink(publicId);
+      }
+    }
   }, []);
 
   const handleCreateLink = (newLink) => {
@@ -77,8 +99,26 @@ function App() {
   };
 
   const handleLanguageChange = (newLang) => {
+    setLanguage(newLang);
     // Reload user info after language change
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
+  };
+
+  // Handle link page navigation
+  const handleViewPublicLink = (publicId) => {
+    setLinkPageType('public');
+    setLinkId(publicId);
+  };
+
+  const handleViewPrivateLink = (privateId) => {
+    setLinkPageType('private');
+    setLinkId(privateId);
+  };
+
+  const handleCloseLinkPage = () => {
+    setLinkPageType(null);
+    setLinkId(null);
+    setActiveTab('home');
   };
 
   // Auth guard: redirect to login/signup if trying to access protected features
@@ -122,10 +162,51 @@ function App() {
   }
 
   const renderTabContent = () => {
+    // Show link pages if active
+    if (linkPageType === 'public' && linkId) {
+      return (
+        <div>
+          <PublicLinkPage publicId={linkId} language={language} />
+          <div className="link-page-close">
+            <button onClick={handleCloseLinkPage} className="btn secondary">
+              ← Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (linkPageType === 'private' && linkId) {
+      return (
+        <div>
+          <PrivateLinkPage privateId={linkId} language={language} />
+          <div className="link-page-close">
+            <button onClick={handleCloseLinkPage} className="btn secondary">
+              ← Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Show user profile page if selected
+    if (activeTab === 'user-profile' && selectedUserId) {
+      return (
+        <UserProfilePage
+          userId={selectedUserId}
+          isAuthenticated={isAuthenticated}
+          currentUser={currentUser}
+          onBack={() => setActiveTab('search')}
+          onLoginClick={() => setShowAuthPage('login')}
+        />
+      );
+    }
+
     switch (activeTab) {
       case 'home':
         return (
           <>
+            <HomeTab language={language} onLinkCreated={handleViewPrivateLink} />
             <CreateLinkSection onCreateLink={handleCreateLink} />
             <ActiveLinksSection links={activeLinks} onDeleteLink={handleDeleteLink} />
           </>
@@ -135,7 +216,11 @@ function App() {
       case 'search':
         return (
           <SearchTab
-            onAddFriendClick={() => requireAuth(() => {})} // Trigger auth check
+            isAuthenticated={isAuthenticated}
+            onUserClick={(userId) => {
+              setSelectedUserId(userId);
+              setActiveTab('user-profile');
+            }}
           />
         );
       case 'messages':

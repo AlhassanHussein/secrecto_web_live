@@ -1,52 +1,82 @@
 from datetime import datetime, timedelta
-from typing import List
-import secrets
+from typing import List, Optional
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user_optional, get_db
-from app.models.models import Link, User
-from app.schemas.schemas import LinkCreate, LinkResponse
+from app.core.dependencies import get_current_user, get_current_user_optional, get_db
+from app.core.security import decrypt_message, encrypt_message
+from app.models.models import Link, LinkMessage, LinkStatus, MessageStatus, User
+from app.schemas.schemas import (
+    LinkCreate,
+    LinkResponse,
+    LinkPublicInfo,
+    LinkMessageCreate,
+    LinkMessageResponse,
+)
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
+
+# Mapping of expiration options to hours
+EXPIRATION_MAP = {
+    "6h": 6,
+    "12h": 12,
+    "24h": 24,
+    "7d": 7 * 24,
+    "30d": 30 * 24,
+    "permanent": None,
+}
 
 
-@router.get("/", response_model=List[LinkResponse])
-async def list_links(
-    current_user: User = Depends(get_current_user_optional),
-    db: Session = Depends(get_db)
-) -> List[Link]:
-    # For now, return all non-expired links (in future, filter by user)
+def cleanup_expired_links(db: Session) -> None:
+    """Delete expired links and their messages"""
     now = datetime.utcnow()
-    links = db.query(Link).filter(
-        (Link.expiration_time == None) | (Link.expiration_time > now)
+    expired_links = db.query(Link).filter(
+        Link.expires_at.isnot(None),
+        Link.expires_at <= now,
+        Link.status != LinkStatus.deleted
     ).all()
-    return links
+    
+    for link in expired_links:
+        link.status = LinkStatus.deleted
+    db.commit()
 
 
 @router.post("/create", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/hour")
 async def create_link(
     link_data: LinkCreate,
-    current_user: User = Depends(get_current_user_optional),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ) -> Link:
-    # Generate unique public and private link codes
-    public_code = secrets.token_urlsafe(8)
-    private_code = secrets.token_urlsafe(16)
+    """
+    Create a temporary anonymous messaging link.
+    Guest or logged-in users can create links.
+    """
+    # Generate unique public and private IDs
+    public_id = str(uuid.uuid4())
+    private_id = str(uuid.uuid4())
     
-    # Calculate expiration time
-    expiration_time = None
-    if link_data.expiration_minutes:
-        expiration_time = datetime.utcnow() + timedelta(minutes=link_data.expiration_minutes)
+    # Calculate expiration
+    expires_at = None
+    if link_data.expiration_option != "permanent":
+        hours = EXPIRATION_MAP.get(link_data.expiration_option, 24)
+        expires_at = datetime.utcnow() + timedelta(hours=hours)
     
     # Create link
     new_link = Link(
-        temporary_name=link_data.temporary_name,
-        public_link=f"/link/public/{public_code}",
-        private_link=f"/link/private/{private_code}",
-        expiration_time=expiration_time
+        public_id=public_id,
+        private_id=private_id,
+        user_id=current_user.id if current_user else None,
+        display_name=link_data.display_name,
+        expires_at=expires_at,
+        status=LinkStatus.active
     )
+    
     db.add(new_link)
     db.commit()
     db.refresh(new_link)
@@ -54,14 +84,229 @@ async def create_link(
     return new_link
 
 
-@router.get("/get/{link_id}", response_model=LinkResponse)
-async def get_link(link_id: int, db: Session = Depends(get_db)) -> Link:
-    link = db.query(Link).filter(Link.id == link_id).first()
+@router.get("/{public_id}/info", response_model=LinkPublicInfo)
+async def get_link_info(
+    public_id: str,
+    db: Session = Depends(get_db)
+) -> Link:
+    """
+    Get public info about a link (name, expiration).
+    No authentication required.
+    """
+    # Cleanup expired links
+    cleanup_expired_links(db)
+    
+    # Find link
+    link = db.query(Link).filter(Link.public_id == public_id).first()
     if not link:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Link not found")
+        raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expiration_time and link.expiration_time < datetime.utcnow():
-        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Link has expired")
+    if link.expires_at and datetime.utcnow() > link.expires_at:
+        link.status = LinkStatus.deleted
+        db.commit()
+        raise HTTPException(status_code=404, detail="Link expired")
+    
+    if link.status == LinkStatus.deleted:
+        raise HTTPException(status_code=404, detail="Link not found")
     
     return link
+
+
+@router.post("/{public_id}/send", response_model=dict, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
+async def send_message_to_link(
+    public_id: str,
+    message_data: LinkMessageCreate,
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Send an anonymous message to a public link.
+    No authentication required.
+    """
+    # Cleanup expired links
+    cleanup_expired_links(db)
+    
+    # Find link
+    link = db.query(Link).filter(Link.public_id == public_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Check if expired
+    if link.expires_at and datetime.utcnow() > link.expires_at:
+        link.status = LinkStatus.deleted
+        db.commit()
+        raise HTTPException(status_code=404, detail="Link expired")
+    
+    if link.status == LinkStatus.deleted:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Encrypt message
+    encrypted_content = encrypt_message(message_data.content)
+    
+    # Store message
+    new_message = LinkMessage(
+        link_id=link.id,
+        content=encrypted_content,
+        status=MessageStatus.inbox
+    )
+    db.add(new_message)
+    db.commit()
+    db.refresh(new_message)
+    
+    return {"message_id": new_message.id, "status": "created"}
+
+
+@router.get("/{private_id}/messages", response_model=List[LinkMessageResponse])
+async def get_link_messages(
+    private_id: str,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+) -> List[LinkMessage]:
+    """
+    Get messages sent to a private link.
+    Only accessible with the private link.
+    """
+    # Cleanup expired links
+    cleanup_expired_links(db)
+    
+    # Find link by private_id
+    link = db.query(Link).filter(Link.private_id == private_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Check if expired
+    if link.expires_at and datetime.utcnow() > link.expires_at:
+        link.status = LinkStatus.deleted
+        db.commit()
+        raise HTTPException(status_code=404, detail="Link expired")
+    
+    if link.status == LinkStatus.deleted:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # If link belongs to user, verify ownership
+    # If link is for guest, private_id acts as access token
+    if link.user_id and current_user and link.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Fetch messages
+    messages = db.query(LinkMessage).filter(
+        LinkMessage.link_id == link.id,
+        LinkMessage.status != MessageStatus.deleted  # Don't return deleted by default
+    ).order_by(LinkMessage.created_at.desc()).all()
+    
+    # Decrypt messages
+    for message in messages:
+        message.content = decrypt_message(message.content)
+    
+    return messages
+
+
+@router.patch("/{private_id}/messages/{message_id}/make-public", response_model=LinkMessageResponse)
+async def make_link_message_public(
+    private_id: str,
+    message_id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+) -> LinkMessage:
+    """
+    Make a link message public (visible on link display).
+    """
+    # Find link
+    link = db.query(Link).filter(Link.private_id == private_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Ownership/access check
+    if link.user_id and current_user and link.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Find message
+    message = db.query(LinkMessage).filter(
+        LinkMessage.id == message_id,
+        LinkMessage.link_id == link.id
+    ).first()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    # Update status
+    message.status = MessageStatus.public
+    db.commit()
+    db.refresh(message)
+    
+    # Decrypt for response
+    message.content = decrypt_message(message.content)
+    
+    return message
+
+
+@router.patch("/{private_id}/messages/{message_id}/make-private", response_model=LinkMessageResponse)
+async def make_link_message_private(
+    private_id: str,
+    message_id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+) -> LinkMessage:
+    """
+    Make a link message private (only visible via private link).
+    """
+    # Find link
+    link = db.query(Link).filter(Link.private_id == private_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Ownership/access check
+    if link.user_id and current_user and link.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Find message
+    message = db.query(LinkMessage).filter(
+        LinkMessage.id == message_id,
+        LinkMessage.link_id == link.id
+    ).first()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    # Update status
+    message.status = MessageStatus.inbox
+    db.commit()
+    db.refresh(message)
+    
+    # Decrypt for response
+    message.content = decrypt_message(message.content)
+    
+    return message
+
+
+@router.delete("/{private_id}/messages/{message_id}", status_code=status.HTTP_200_OK)
+async def delete_link_message(
+    private_id: str,
+    message_id: int,
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Soft delete a link message.
+    """
+    # Find link
+    link = db.query(Link).filter(Link.private_id == private_id).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # Ownership/access check
+    if link.user_id and current_user and link.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Find message
+    message = db.query(LinkMessage).filter(
+        LinkMessage.id == message_id,
+        LinkMessage.link_id == link.id
+    ).first()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    # Soft delete
+    message.status = MessageStatus.deleted
+    db.commit()
+    
+    return {"message": "Message deleted"}

@@ -1,12 +1,37 @@
 from datetime import datetime, timedelta
 from typing import Any, Optional
+import os
 
+from cryptography.fernet import Fernet
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import get_settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Message encryption setup
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    # Generate a key for development (should be set in production)
+    ENCRYPTION_KEY = Fernet.generate_key().decode()
+    print(f"⚠️  WARNING: Using auto-generated encryption key. Set ENCRYPTION_KEY in production!")
+
+cipher = Fernet(ENCRYPTION_KEY.encode())
+
+
+def encrypt_message(content: str) -> str:
+    """Encrypt message content for storage"""
+    return cipher.encrypt(content.encode()).decode()
+
+
+def decrypt_message(encrypted_content: str) -> str:
+    """Decrypt message content for reading"""
+    try:
+        return cipher.decrypt(encrypted_content.encode()).decode()
+    except Exception:
+        # If decryption fails, return placeholder (corrupted data)
+        return "[Message content unavailable]"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
