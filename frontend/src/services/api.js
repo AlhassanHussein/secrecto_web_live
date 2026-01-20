@@ -186,10 +186,10 @@ export const messagesAPI = {
 export const linksAPI = {
   // Create a temporary anonymous messaging link
   createLink: async (linkData) => {
+    // Do NOT skip auth: if user is logged in, include token so backend associates owner
     return apiRequest('/api/links/create', {
       method: 'POST',
       body: JSON.stringify(linkData),
-      skipAuth: true, // Allow both guest and logged-in users
     });
   },
 

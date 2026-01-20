@@ -114,6 +114,13 @@ class LinkMessageResponse(BaseModel):
         from_attributes = True
 
 
+class LinkMessagesWithMeta(BaseModel):
+    messages: List[LinkMessageResponse]
+    display_name: Optional[str]
+    expires_at: Optional[datetime]
+    status: str
+
+
 # ============ User/Follow Schemas ============
 
 class UserSearch(BaseModel):

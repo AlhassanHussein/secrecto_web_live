@@ -16,6 +16,7 @@ from app.schemas.schemas import (
     LinkPublicInfo,
     LinkMessageCreate,
     LinkMessageResponse,
+    LinkMessagesWithMeta,
 )
 
 router = APIRouter()
@@ -159,14 +160,14 @@ async def send_message_to_link(
     return {"message_id": new_message.id, "status": "created"}
 
 
-@router.get("/{private_id}/messages", response_model=List[LinkMessageResponse])
+@router.get("/{private_id}/messages", response_model=LinkMessagesWithMeta)
 async def get_link_messages(
     private_id: str,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
-) -> List[LinkMessage]:
+) -> dict:
     """
-    Get messages sent to a private link.
+    Get messages sent to a private link, with link metadata for UI countdown.
     Only accessible with the private link.
     """
     # Cleanup expired links
@@ -191,17 +192,22 @@ async def get_link_messages(
     if link.user_id and current_user and link.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Fetch messages
+    # Fetch messages (exclude deleted by default)
     messages = db.query(LinkMessage).filter(
         LinkMessage.link_id == link.id,
-        LinkMessage.status != MessageStatus.deleted  # Don't return deleted by default
+        LinkMessage.status != MessageStatus.deleted
     ).order_by(LinkMessage.created_at.desc()).all()
     
     # Decrypt messages
     for message in messages:
         message.content = decrypt_message(message.content)
     
-    return messages
+    return {
+        "messages": messages,
+        "display_name": link.display_name,
+        "expires_at": link.expires_at,
+        "status": link.status,
+    }
 
 
 @router.patch("/{private_id}/messages/{message_id}/make-public", response_model=LinkMessageResponse)

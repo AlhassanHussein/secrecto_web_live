@@ -19,6 +19,37 @@ import PublicLinkPage from './components/PublicLinkPage';
 import PrivateLinkPage from './components/PrivateLinkPage';
 import './App.css';
 
+// Wrapper components for link pages to extract params
+const PublicLinkPageWrapper = ({ language }) => {
+  const { publicId } = useParams();
+  const navigate = useNavigate();
+  return (
+    <div>
+      <PublicLinkPage publicId={publicId} language={language} />
+      <div className="link-page-close">
+        <button onClick={() => navigate('/home')} className="btn secondary">
+          ← Back
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PrivateLinkPageWrapper = ({ language }) => {
+  const { privateId } = useParams();
+  const navigate = useNavigate();
+  return (
+    <div>
+      <PrivateLinkPage privateId={privateId} language={language} />
+      <div className="link-page-close">
+        <button onClick={() => navigate('/home')} className="btn secondary">
+          ← Back
+        </button>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -197,35 +228,11 @@ function App() {
           {/* Link Pages */}
           <Route
             path="/link/public/:publicId"
-            element={
-              <div>
-                <PublicLinkPage
-                  publicId={location.pathname.split('/link/public/')[1]}
-                  language={language}
-                />
-                <div className="link-page-close">
-                  <button onClick={() => navigate('/home')} className="btn secondary">
-                    ← Back
-                  </button>
-                </div>
-              </div>
-            }
+            element={<PublicLinkPageWrapper language={language} />}
           />
           <Route
             path="/link/private/:privateId"
-            element={
-              <div>
-                <PrivateLinkPage
-                  privateId={location.pathname.split('/link/private/')[1]}
-                  language={language}
-                />
-                <div className="link-page-close">
-                  <button onClick={() => navigate('/home')} className="btn secondary">
-                    ← Back
-                  </button>
-                </div>
-              </div>
-            }
+            element={<PrivateLinkPageWrapper language={language} />}
           />
 
           {/* Main App Routes */}

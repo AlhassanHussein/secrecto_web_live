@@ -101,7 +101,7 @@ const formatMessageTime = (createdAt, t) => {
   return `${diffDays} ${t.days} ${t.ago}`;
 };
 
-const MessageTab = ({ label, messages, onMakePublic, onMakePrivate, onDelete, onRestore, isDeleted, language, t }) => {
+const MessageList = ({ messages, onMakePublic, onDelete, language, t }) => {
   const isRTL = language === 'AR';
 
   return (
@@ -128,33 +128,13 @@ const MessageTab = ({ label, messages, onMakePublic, onMakePrivate, onDelete, on
                     ⭐
                   </button>
                 )}
-                {msg.status === 'public' && (
-                  <button
-                    onClick={() => onMakePrivate(msg.id)}
-                    className="action-btn make-private"
-                    title={t.markPrivate}
-                  >
-                    🔒
-                  </button>
-                )}
-                {!isDeleted && (
-                  <button
-                    onClick={() => onDelete(msg.id)}
-                    className="action-btn delete"
-                    title={t.delete}
-                  >
-                    🗑️
-                  </button>
-                )}
-                {isDeleted && (
-                  <button
-                    onClick={() => onRestore(msg.id)}
-                    className="action-btn restore"
-                    title={t.restore}
-                  >
-                    ↩️
-                  </button>
-                )}
+                <button
+                  onClick={() => onDelete(msg.id)}
+                  className="action-btn delete"
+                  title={t.delete}
+                >
+                  🗑️
+                </button>
               </div>
             </div>
           ))}
@@ -180,8 +160,9 @@ const PrivateLinkPage = ({ privateId, language = 'EN' }) => {
       try {
         setLoading(true);
         const data = await linksAPI.getLinkMessages(privateId);
-        setMessages(data.messages || []);
-        setExpiresAt(data.expires_at);
+        // New backend structure: { messages, display_name, expires_at, status }
+        setMessages(data?.messages || []);
+        setExpiresAt(data?.expires_at || null);
       } catch (err) {
         setError(t.error);
         console.error('Failed to load messages:', err);
@@ -224,52 +205,18 @@ const PrivateLinkPage = ({ privateId, language = 'EN' }) => {
     }
   };
 
-  const handleMakePrivate = async (messageId) => {
-    try {
-      await linksAPI.makeLinkMessagePrivate(privateId, messageId);
-      // Optimistic update
-      setMessages((msgs) =>
-        msgs.map((msg) =>
-          msg.id === messageId ? { ...msg, status: 'inbox' } : msg
-        )
-      );
-    } catch (err) {
-      setError('Failed to update message');
-    }
-  };
-
   const handleDelete = async (messageId) => {
     try {
       await linksAPI.deleteLinkMessage(privateId, messageId);
-      // Optimistic update
-      setMessages((msgs) =>
-        msgs.map((msg) =>
-          msg.id === messageId ? { ...msg, status: 'deleted' } : msg
-        )
-      );
+      // Optimistic update: drop the message from view
+      setMessages((msgs) => msgs.filter((msg) => msg.id !== messageId));
     } catch (err) {
       setError('Failed to delete message');
     }
   };
 
-  const handleRestore = async (messageId) => {
-    try {
-      await linksAPI.makeLinkMessagePrivate(privateId, messageId);
-      // Optimistic update
-      setMessages((msgs) =>
-        msgs.map((msg) =>
-          msg.id === messageId ? { ...msg, status: 'inbox' } : msg
-        )
-      );
-    } catch (err) {
-      setError('Failed to restore message');
-    }
-  };
-
-  // Filter messages by status
+  // Show only inbox messages; public/deleted tabs removed for simplicity
   const inboxMessages = messages.filter((m) => m.status === 'inbox');
-  const publicMessages = messages.filter((m) => m.status === 'public');
-  const deletedMessages = messages.filter((m) => m.status === 'deleted');
 
   if (loading) {
     return (
@@ -296,68 +243,16 @@ const PrivateLinkPage = ({ privateId, language = 'EN' }) => {
       {error && <div className="error-message">{error}</div>}
 
       <section className="messages-section card">
-        <div className="tabs">
-          <button
-            className={`tab ${activeTab === 'inbox' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inbox')}
-          >
-            {t.inbox} ({inboxMessages.length})
-          </button>
-          <button
-            className={`tab ${activeTab === 'public' ? 'active' : ''}`}
-            onClick={() => setActiveTab('public')}
-          >
-            {t.public} ({publicMessages.length})
-          </button>
-          <button
-            className={`tab ${activeTab === 'deleted' ? 'active' : ''}`}
-            onClick={() => setActiveTab('deleted')}
-          >
-            {t.deleted} ({deletedMessages.length})
-          </button>
+        <div className="section-header">
+          <h2 className="section-title">{t.inbox} ({inboxMessages.length})</h2>
         </div>
-
-        <div className="tab-content">
-          {activeTab === 'inbox' && (
-            <MessageTab
-              label={t.inbox}
-              messages={inboxMessages}
-              onMakePublic={handleMakePublic}
-              onMakePrivate={handleMakePrivate}
-              onDelete={handleDelete}
-              onRestore={handleRestore}
-              isDeleted={false}
-              language={language}
-              t={t}
-            />
-          )}
-          {activeTab === 'public' && (
-            <MessageTab
-              label={t.public}
-              messages={publicMessages}
-              onMakePublic={handleMakePublic}
-              onMakePrivate={handleMakePrivate}
-              onDelete={handleDelete}
-              onRestore={handleRestore}
-              isDeleted={false}
-              language={language}
-              t={t}
-            />
-          )}
-          {activeTab === 'deleted' && (
-            <MessageTab
-              label={t.deleted}
-              messages={deletedMessages}
-              onMakePublic={handleMakePublic}
-              onMakePrivate={handleMakePrivate}
-              onDelete={handleDelete}
-              onRestore={handleRestore}
-              isDeleted={true}
-              language={language}
-              t={t}
-            />
-          )}
-        </div>
+        <MessageList
+          messages={inboxMessages}
+          onMakePublic={handleMakePublic}
+          onDelete={handleDelete}
+          language={language}
+          t={t}
+        />
       </section>
     </div>
   );

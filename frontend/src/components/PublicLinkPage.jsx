@@ -52,9 +52,26 @@ const PublicLinkPage = ({ publicId, language = 'EN' }) => {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(null);
+  const [countdown, setCountdown] = useState(null);
 
   const t = translations[language];
   const isRTL = language === 'AR';
+
+  // Countdown display for sender
+  const formatTimeRemaining = (expiresAt) => {
+    if (!expiresAt) return null;
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    const diff = expires - now;
+    if (diff <= 0) return null;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m ${seconds}s`;
+  };
 
   useEffect(() => {
     const fetchLinkInfo = async () => {
@@ -77,6 +94,14 @@ const PublicLinkPage = ({ publicId, language = 'EN' }) => {
 
     fetchLinkInfo();
   }, [publicId, t]);
+
+  useEffect(() => {
+    if (!linkInfo?.expires_at) return;
+    const update = () => setCountdown(formatTimeRemaining(linkInfo.expires_at));
+    update();
+    const i = setInterval(update, 1000);
+    return () => clearInterval(i);
+  }, [linkInfo]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -130,6 +155,11 @@ const PublicLinkPage = ({ publicId, language = 'EN' }) => {
         <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem' }}>
           {t.sendAnonymous} • {t.multipleAllowed}
         </p>
+        {countdown && (
+          <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: 'var(--primary-light)', color: 'var(--primary)', display: 'inline-block', fontWeight: 700 }}>
+            ⏱ Time left: {countdown}
+          </div>
+        )}
       </section>
 
       <section className="card" style={{ padding: '1.5rem' }}>
