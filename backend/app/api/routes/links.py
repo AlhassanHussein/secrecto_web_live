@@ -34,7 +34,7 @@ EXPIRATION_MAP = {
 
 def cleanup_expired_links(db: Session) -> None:
     """Delete expired links and their messages"""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     expired_links = db.query(Link).filter(
         Link.expires_at.isnot(None),
         Link.expires_at <= now,
@@ -66,7 +66,7 @@ async def create_link(
     expires_at = None
     if link_data.expiration_option != "permanent":
         hours = EXPIRATION_MAP.get(link_data.expiration_option, 24)
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=hours)
+        expires_at = datetime.utcnow() + timedelta(hours=hours)
     
     # Create link
     new_link = Link(
@@ -103,7 +103,7 @@ async def get_link_info(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
+    if link.expires_at and datetime.utcnow() > link.expires_at:
         link.status = LinkStatus.deleted
         db.commit()
         raise HTTPException(status_code=404, detail="Link expired")
@@ -135,7 +135,7 @@ async def send_message_to_link(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
+    if link.expires_at and datetime.utcnow() > link.expires_at:
         link.status = LinkStatus.deleted
         db.commit()
         raise HTTPException(status_code=404, detail="Link expired")
@@ -178,7 +178,7 @@ async def get_link_messages(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
+    if link.expires_at and datetime.utcnow() > link.expires_at:
         link.status = LinkStatus.deleted
         db.commit()
         raise HTTPException(status_code=404, detail="Link expired")
@@ -312,3 +312,24 @@ async def delete_link_message(
     db.commit()
     
     return {"message": "Message deleted"}
+
+
+@router.get("/my-links", response_model=List[LinkResponse])
+async def get_my_links(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> List[Link]:
+    """
+    Get all links created by the authenticated user.
+    Only returns active and non-expired links.
+    """
+    # Cleanup expired links
+    cleanup_expired_links(db)
+    
+    # Fetch user's links
+    links = db.query(Link).filter(
+        Link.user_id == current_user.id,
+        Link.status == LinkStatus.active
+    ).order_by(Link.created_at.desc()).all()
+    
+    return links

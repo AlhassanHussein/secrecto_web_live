@@ -232,16 +232,16 @@ function App() {
           <Route
             path="/home"
             element={
-              <>
-                <HomeTab language={language} onLinkCreated={handleCreateLink} />
-                <CreateLinkSection onCreateLink={handleCreateLink} />
-                <ActiveLinksSection links={activeLinks} onDeleteLink={handleDeleteLink} />
-              </>
+              <HomeTab 
+                isAuthenticated={isAuthenticated} 
+                language={language} 
+                onLinkCreated={handleCreateLink} 
+              />
             }
           />
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
-          <Route path="/links" element={<LinksTab links={activeLinks} />} />
+          <Route path="/links" element={<LinksTab isAuthenticated={isAuthenticated} />} />
           <Route
             path="/search"
             element={

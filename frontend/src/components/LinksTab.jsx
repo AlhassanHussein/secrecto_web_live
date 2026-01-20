@@ -1,58 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { linksAPI } from '../services/api';
 import './LinksTab.css';
 
-const LinksTab = ({ links }) => {
+const LinksTab = ({ isAuthenticated }) => {
+    const [links, setLinks] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [copiedId, setCopiedId] = useState(null);
 
-    // Mock data for demonstration - will be replaced with real data from backend
-    const mockLinks = [
-        {
-            id: 1,
-            name: 'Ask me anything',
-            type: 'temporary',
-            duration: '24h',
-            createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-            publicUrl: 'https://saytruth.app/l/abc123xyz',
-            privateUrl: 'https://saytruth.app/p/xyz789abc',
-            messageCount: 12,
-            isExpired: false,
-        },
-        {
-            id: 2,
-            name: 'Feedback',
-            type: 'temporary',
-            duration: '1w',
-            createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-            publicUrl: 'https://saytruth.app/l/def456uvw',
-            privateUrl: 'https://saytruth.app/p/uvw123def',
-            messageCount: 5,
-            isExpired: false,
-        },
-        {
-            id: 3,
-            name: 'Anonymous Questions',
-            type: 'permanent',
-            duration: 'permanent',
-            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-            publicUrl: 'https://saytruth.app/l/ghi789rst',
-            privateUrl: 'https://saytruth.app/p/rst456ghi',
-            messageCount: 47,
-            isExpired: false,
-        },
-        {
-            id: 4,
-            name: 'Old Survey',
-            type: 'temporary',
-            duration: '12h',
-            createdAt: new Date(Date.now() - 15 * 60 * 60 * 1000), // 15 hours ago
-            publicUrl: 'https://saytruth.app/l/jkl012mno',
-            privateUrl: 'https://saytruth.app/p/mno789jkl',
-            messageCount: 3,
-            isExpired: true,
-        },
-    ];
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchUserLinks();
+        } else {
+            setLoading(false);
+        }
+    }, [isAuthenticated]);
 
-    const displayLinks = links.length > 0 ? links : mockLinks;
+    const fetchUserLinks = async () => {
+        try {
+            setLoading(true);
+            const userLinks = await linksAPI.getUserLinks();
+            setLinks(userLinks);
+        } catch (err) {
+            console.error('Failed to load links:', err);
+            setLinks([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleCopy = async (url, id) => {
         try {
@@ -64,23 +38,15 @@ const LinksTab = ({ links }) => {
         }
     };
 
-    const getTimeRemaining = (link) => {
-        if (link.type === 'permanent') return 'Permanent';
-        if (link.isExpired) return 'Expired';
+    const getPublicUrl = (publicId) => `${window.location.origin}/link/public/${publicId}`;
+    const getPrivateUrl = (privateId) => `${window.location.origin}/link/private/${privateId}`;
+
+    const getTimeRemaining = (expiresAt) => {
+        if (!expiresAt) return 'Permanent';
 
         const now = new Date();
-        const created = new Date(link.createdAt);
-
-        const durationMs = {
-            '6h': 6 * 60 * 60 * 1000,
-            '12h': 12 * 60 * 60 * 1000,
-            '24h': 24 * 60 * 60 * 1000,
-            '1w': 7 * 24 * 60 * 60 * 1000,
-            '1m': 30 * 24 * 60 * 60 * 1000,
-        }[link.duration];
-
-        const expiresAt = new Date(created.getTime() + durationMs);
-        const remaining = expiresAt - now;
+        const expires = new Date(expiresAt);
+        const remaining = expires - now;
 
         if (remaining <= 0) return 'Expired';
 
@@ -88,131 +54,153 @@ const LinksTab = ({ links }) => {
         const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
 
-        if (days > 0) return `${days}d ${hours}h remaining`;
-        if (hours > 0) return `${hours}h ${minutes}m remaining`;
-        return `${minutes}m remaining`;
+        if (days > 0) return `${days}d ${hours}h`;
+        if (hours > 0) return `${hours}h ${minutes}m`;
+        return `${minutes}m`;
     };
 
-    return (
-        <div className="links-tab">
-            <div className="links-tab-header">
-                <h1 className="page-title">My Links</h1>
-                <p className="page-subtitle">Manage your public and private anonymous links</p>
+    const isExpired = (expiresAt) => {
+        if (!expiresAt) return false;
+        return new Date(expiresAt) <= new Date();
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="links-tab" style={{ padding: '2rem', maxWidth: '520px', margin: '0 auto', textAlign: 'center' }}>
+                <div className="card" style={{ padding: '2rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>Login Required</h2>
+                    <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem' }}>
+                        Please log in to see your created links. Guest links are not saved.
+                    </p>
+                </div>
             </div>
+        );
+    }
 
-            <div className="links-sections">
-                {/* Public Links Section */}
-                <section className="link-section">
-                    <div className="section-header">
-                        <div className="section-title-wrapper">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="section-icon">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M2 12h20" />
-                            </svg>
-                            <h2 className="section-title">Public Links</h2>
-                        </div>
-                        <span className="section-badge">{displayLinks.filter(l => !l.isExpired).length}</span>
-                    </div>
-                    <p className="section-description">Share these links to receive anonymous messages</p>
+    if (loading) {
+        return (
+            <div className="links-tab" style={{ padding: '2rem', maxWidth: '520px', margin: '0 auto', textAlign: 'center' }}>
+                <div className="card" style={{ padding: '2rem' }}>
+                    <p>Loading your links...</p>
+                </div>
+            </div>
+        );
+    }
 
-                    <div className="links-list">
-                        {displayLinks.map((link) => (
-                            <div key={link.id} className={`link-item ${link.isExpired ? 'expired' : ''}`}>
-                                <div className="link-item-header">
-                                    <div className="link-item-info">
-                                        <h3 className="link-item-name">{link.name}</h3>
-                                        <div className="link-item-meta">
-                                            <span className={`type-badge ${link.type}`}>
-                                                {link.type === 'permanent' ? '∞ Permanent' : `⏱️ ${link.duration.toUpperCase()}`}
-                                            </span>
-                                            <span className={`time-status ${link.isExpired ? 'expired' : ''}`}>
-                                                {getTimeRemaining(link)}
-                                            </span>
-                                        </div>
-                                    </div>
+    return (
+        <div className="links-tab" style={{ padding: '1rem', maxWidth: '520px', margin: '0 auto', paddingBottom: '6rem' }}>
+            <section className="card" style={{ marginBottom: '1rem', padding: '1.5rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>My Links</h1>
+                <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem' }}>Manage your anonymous messaging links</p>
+            </section>
+
+            {links.length === 0 ? (
+                <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+                    <h3 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>No links yet</h3>
+                    <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem' }}>
+                        Create a link from the Home tab to get started
+                    </p>
+                </div>
+            ) : (
+                links.map((link) => {
+                    const expired = isExpired(link.expires_at);
+                    const publicUrl = getPublicUrl(link.public_id);
+                    const privateUrl = getPrivateUrl(link.private_id);
+
+                    return (
+                        <div key={link.public_id} className="card" style={{ marginBottom: '1rem', padding: '1.5rem', opacity: expired ? 0.6 : 1 }}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                    <h3 style={{ fontWeight: 700, fontSize: '1.125rem' }}>{link.display_name || 'Anonymous'}</h3>
+                                    <span style={{
+                                        padding: '0.25rem 0.75rem',
+                                        borderRadius: '1rem',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        background: expired ? 'var(--gray-200)' : 'var(--primary-light)',
+                                        color: expired ? 'var(--gray-600)' : 'var(--primary)'
+                                    }}>
+                                        {expired ? '⏰ Expired' : `⏱ ${getTimeRemaining(link.expires_at)}`}
+                                    </span>
                                 </div>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+                                    Created {new Date(link.created_at).toLocaleDateString()}
+                                </p>
+                            </div>
 
-                                <div className="link-item-url">
+                            <div style={{ marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontSize: '1rem' }}>🌍</span>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-700)' }}>Public Link</label>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
                                     <input
                                         type="text"
-                                        value={link.publicUrl}
+                                        value={publicUrl}
                                         readOnly
-                                        className="url-input"
+                                        style={{
+                                            flex: 1,
+                                            padding: '0.5rem',
+                                            borderRadius: '0.5rem',
+                                            border: '1px solid var(--gray-200)',
+                                            fontSize: '0.75rem',
+                                            fontFamily: 'monospace',
+                                            background: 'var(--gray-50)'
+                                        }}
                                     />
                                     <button
-                                        className={`copy-btn ${copiedId === `public-${link.id}` ? 'copied' : ''}`}
-                                        onClick={() => handleCopy(link.publicUrl, `public-${link.id}`)}
-                                        disabled={link.isExpired}
+                                        onClick={() => handleCopy(publicUrl, `public-${link.public_id}`)}
+                                        disabled={expired}
+                                        className="action outline"
+                                        style={{ whiteSpace: 'nowrap', fontSize: '0.875rem' }}
                                     >
-                                        {copiedId === `public-${link.id}` ? (
-                                            <>
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <polyline points="20 6 9 17 4 12" />
-                                                </svg>
-                                                Copied!
-                                            </>
-                                        ) : (
-                                            <>
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                </svg>
-                                                Copy
-                                            </>
-                                        )}
+                                        {copiedId === `public-${link.public_id}` ? '✓ Copied' : 'Copy'}
                                     </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </section>
 
-                {/* Private Links Section */}
-                <section className="link-section">
-                    <div className="section-header">
-                        <div className="section-title-wrapper">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="section-icon">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                            </svg>
-                            <h2 className="section-title">Private Links</h2>
-                        </div>
-                        <span className="section-badge private">{displayLinks.filter(l => !l.isExpired).length}</span>
-                    </div>
-                    <p className="section-description">Access your received messages (login required)</p>
-
-                    <div className="links-list">
-                        {displayLinks.map((link) => (
-                            <div key={link.id} className={`link-item private ${link.isExpired ? 'expired' : ''}`}>
-                                <div className="link-item-header">
-                                    <div className="link-item-info">
-                                        <h3 className="link-item-name">{link.name}</h3>
-                                        <div className="link-item-meta">
-                                            <span className="message-count">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                                </svg>
-                                                {link.messageCount} {link.messageCount === 1 ? 'message' : 'messages'}
-                                            </span>
-                                        </div>
-                                    </div>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontSize: '1rem' }}>🔒</span>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--gray-700)' }}>Private Link (Inbox)</label>
                                 </div>
-
-                                <button
-                                    className={`view-messages-btn ${link.isExpired ? 'disabled' : ''}`}
-                                    disabled={link.isExpired}
-                                >
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                        <circle cx="12" cy="12" r="3" />
-                                    </svg>
-                                    View Messages
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <input
+                                        type="text"
+                                        value={privateUrl}
+                                        readOnly
+                                        style={{
+                                            flex: 1,
+                                            padding: '0.5rem',
+                                            borderRadius: '0.5rem',
+                                            border: '1px solid var(--gray-200)',
+                                            fontSize: '0.75rem',
+                                            fontFamily: 'monospace',
+                                            background: 'var(--gray-50)'
+                                        }}
+                                    />
+                                    <button
+                                        onClick={() => handleCopy(privateUrl, `private-${link.private_id}`)}
+                                        className="action outline"
+                                        style={{ whiteSpace: 'nowrap', fontSize: '0.875rem' }}
+                                    >
+                                        {copiedId === `private-${link.private_id}` ? '✓ Copied' : 'Copy'}
+                                    </button>
+                                    <a
+                                        href={privateUrl}
+                                        className="action primary"
+                                        style={{ whiteSpace: 'nowrap', fontSize: '0.875rem', textDecoration: 'none', display: 'flex', alignItems: 'center' }}
+                                    >
+                                        View
+                                    </a>
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </section>
-            </div>
+                        </div>
+                    );
+                })
+            )}
         </div>
     );
 };

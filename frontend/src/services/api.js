@@ -1,5 +1,23 @@
 // API base URL from environment variable
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// In production, use Caddy proxy on same host; in dev, use localhost port 80 (Caddy)
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost';
+
+// Normalize base URL to avoid accidental '/api' duplication and trailing slashes
+const normalizeBaseUrl = (base) => {
+  let b = (base || '').trim();
+  // Remove trailing slash
+  if (b.endsWith('/')) {
+    b = b.slice(0, -1);
+  }
+  // Strip trailing '/api' if present (case-insensitive)
+  const lower = b.toLowerCase();
+  if (lower.endsWith('/api')) {
+    b = b.slice(0, -4);
+  }
+  return b;
+};
+
+const API_BASE_URL = normalizeBaseUrl(RAW_API_BASE_URL);
 
 // Helper function to get auth token from localStorage
 const getAuthToken = () => {
@@ -28,7 +46,10 @@ const apiRequest = async (endpoint, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  // Ensure endpoint starts with a single leading slash
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
     ...options,
     headers,
   });
@@ -50,7 +71,7 @@ const apiRequest = async (endpoint, options = {}) => {
 
 export const authAPI = {
   signup: async (username, name, secretPhrase, secretAnswer) => {
-    const data = await apiRequest('/auth/signup', {
+    const data = await apiRequest('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({
         username,
@@ -67,7 +88,7 @@ export const authAPI = {
   },
 
   login: async (username, secretAnswer) => {
-    const data = await apiRequest('/auth/login', {
+    const data = await apiRequest('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, secret_answer: secretAnswer }),
       skipAuth: true,
@@ -79,7 +100,7 @@ export const authAPI = {
   },
 
   recoverPassword: async (username) => {
-    return apiRequest('/auth/recover', {
+    return apiRequest('/api/auth/recover', {
       method: 'POST',
       body: JSON.stringify({ username }),
       skipAuth: true,
@@ -87,7 +108,7 @@ export const authAPI = {
   },
 
   verifyRecovery: async (username, secretAnswer) => {
-    const data = await apiRequest('/auth/recover/verify', {
+    const data = await apiRequest('/api/auth/recover/verify', {
       method: 'POST',
       body: JSON.stringify({ username, secret_answer: secretAnswer }),
       skipAuth: true,
@@ -99,7 +120,7 @@ export const authAPI = {
   },
 
   updateSettings: async (settings) => {
-    return apiRequest('/auth/settings', {
+    return apiRequest('/api/auth/settings', {
       method: 'PATCH',
       body: JSON.stringify(settings),
     });
@@ -110,7 +131,7 @@ export const authAPI = {
   },
 
   getCurrentUser: async () => {
-    return apiRequest('/auth/me');
+    return apiRequest('/api/auth/me');
   },
 };
 
@@ -118,16 +139,16 @@ export const authAPI = {
 
 export const messagesAPI = {
   getMessages: async () => {
-    return apiRequest('/messages/');
+    return apiRequest('/api/messages/');
   },
 
   getInbox: async () => {
     // Fetch all messages grouped by status: inbox, public, deleted
-    return apiRequest('/messages/inbox');
+    return apiRequest('/api/messages/inbox');
   },
 
   sendMessage: async (receiverUsername, content) => {
-    return apiRequest('/messages/send', {
+    return apiRequest('/api/messages/send', {
       method: 'POST',
       body: JSON.stringify({ receiver_username: receiverUsername, content }),
       skipAuth: true, // Allow anonymous messages
@@ -135,26 +156,26 @@ export const messagesAPI = {
   },
 
   updateMessageStatus: async (messageId, status) => {
-    return apiRequest(`/messages/${messageId}/status`, {
+    return apiRequest(`/api/messages/${messageId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
   },
 
   makeMessagePublic: async (messageId) => {
-    return apiRequest(`/messages/${messageId}/make-public`, {
+    return apiRequest(`/api/messages/${messageId}/make-public`, {
       method: 'PATCH',
     });
   },
 
   makeMessagePrivate: async (messageId) => {
-    return apiRequest(`/messages/${messageId}/make-private`, {
+    return apiRequest(`/api/messages/${messageId}/make-private`, {
       method: 'PATCH',
     });
   },
 
   deleteMessage: async (messageId) => {
-    return apiRequest(`/messages/${messageId}`, {
+    return apiRequest(`/api/messages/${messageId}`, {
       method: 'DELETE',
     });
   },
@@ -164,27 +185,29 @@ export const messagesAPI = {
 
 export const linksAPI = {
   // Create a temporary anonymous messaging link
-  createLink: async (displayName = null, expirationOption = "24h") => {
-    return apiRequest('/links/create', {
+  createLink: async (linkData) => {
+    return apiRequest('/api/links/create', {
       method: 'POST',
-      body: JSON.stringify({ 
-        display_name: displayName, 
-        expiration_option: expirationOption 
-      }),
+      body: JSON.stringify(linkData),
       skipAuth: true, // Allow both guest and logged-in users
     });
   },
 
+  // Get user's created links (requires auth)
+  getUserLinks: async () => {
+    return apiRequest('/api/links/my-links');
+  },
+
   // Get public info about a link
   getLinkInfo: async (publicId) => {
-    return apiRequest(`/links/${publicId}/info`, {
+    return apiRequest(`/api/links/${publicId}/info`, {
       skipAuth: true,
     });
   },
 
   // Send message to a public link
   sendLinkMessage: async (publicId, content) => {
-    return apiRequest(`/links/${publicId}/send`, {
+    return apiRequest(`/api/links/${publicId}/send`, {
       method: 'POST',
       body: JSON.stringify({ content }),
       skipAuth: true, // Allow anonymous message sending
@@ -193,28 +216,28 @@ export const linksAPI = {
 
   // Get messages from a private link
   getLinkMessages: async (privateId) => {
-    return apiRequest(`/links/${privateId}/messages`, {
+    return apiRequest(`/api/links/${privateId}/messages`, {
       skipAuth: true, // Private ID acts as access token
     });
   },
 
   // Make a link message public
   makeLinkMessagePublic: async (privateId, messageId) => {
-    return apiRequest(`/links/${privateId}/messages/${messageId}/make-public`, {
+    return apiRequest(`/api/links/${privateId}/messages/${messageId}/make-public`, {
       method: 'PATCH',
     });
   },
 
   // Make a link message private
   makeLinkMessagePrivate: async (privateId, messageId) => {
-    return apiRequest(`/links/${privateId}/messages/${messageId}/make-private`, {
+    return apiRequest(`/api/links/${privateId}/messages/${messageId}/make-private`, {
       method: 'PATCH',
     });
   },
 
   // Delete a link message
   deleteLinkMessage: async (privateId, messageId) => {
-    return apiRequest(`/links/${privateId}/messages/${messageId}`, {
+    return apiRequest(`/api/links/${privateId}/messages/${messageId}`, {
       method: 'DELETE',
     });
   },
@@ -224,7 +247,7 @@ export const linksAPI = {
 
 export const userAPI = {
   searchUsers: async (username) => {
-    return apiRequest('/users/search', {
+    return apiRequest('/api/users/search', {
       method: 'POST',
       body: JSON.stringify({ username }),
       skipAuth: true,
@@ -232,35 +255,35 @@ export const userAPI = {
   },
 
   getUserByUsername: async (username) => {
-    return apiRequest(`/users/username/${username}`, {
+    return apiRequest(`/api/users/username/${username}`, {
       skipAuth: true,
     });
   },
 
   getUserProfile: async (userId) => {
-    return apiRequest(`/users/${userId}`, {
+    return apiRequest(`/api/users/${userId}`, {
       skipAuth: true, // Public profile accessible by anyone
     });
   },
 
   followUser: async (userId) => {
-    return apiRequest(`/users/follow/${userId}`, {
+    return apiRequest(`/api/users/follow/${userId}`, {
       method: 'POST',
     });
   },
 
   unfollowUser: async (userId) => {
-    return apiRequest(`/users/unfollow/${userId}`, {
+    return apiRequest(`/api/users/unfollow/${userId}`, {
       method: 'DELETE',
     });
   },
 
   getFollowing: async () => {
-    return apiRequest('/users/following');
+    return apiRequest('/api/users/following');
   },
 
   getFollowers: async () => {
-    return apiRequest('/users/followers');
+    return apiRequest('/api/users/followers');
   },
 
   sendAnonymousMessage: async (userId, content) => {
