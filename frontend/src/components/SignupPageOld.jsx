@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import './AuthPages.css';
 
@@ -19,9 +18,6 @@ const translations = {
         helper: 'Mobile-first, multi-language, secure.',
         phrasePlaceholder: 'e.g., "What is your favorite color?"',
         answerPlaceholder: 'Your answer to the secret phrase',
-        haveAccount: 'Already have an account?',
-        login: 'Login',
-        backHome: 'Back to home',
     },
     AR: {
         eyebrow: 'إنشاء حساب',
@@ -38,9 +34,6 @@ const translations = {
         helper: 'محمول أولاً، متعدد اللغات، آمن.',
         phrasePlaceholder: 'مثال: "ما هو لونك المفضل؟"',
         answerPlaceholder: 'إجابتك على العبارة السرية',
-        haveAccount: 'هل لديك حساب بالفعل؟',
-        login: 'تسجيل الدخول',
-        backHome: 'العودة للرئيسية',
     },
     ES: {
         eyebrow: 'Registro',
@@ -57,14 +50,10 @@ const translations = {
         helper: 'Móvil primero, multilingüe, seguro.',
         phrasePlaceholder: 'ej. "¿Cuál es tu color favorito?"',
         answerPlaceholder: 'Tu respuesta a la frase secreta',
-        haveAccount: '¿Ya tienes una cuenta?',
-        login: 'Inicia sesión',
-        backHome: 'Volver a inicio',
     },
 };
 
 const SignupPage = ({ onSignupSuccess }) => {
-    const navigate = useNavigate();
     const [language, setLanguage] = useState('EN');
     const [username, setUsername] = useState('');
     const [name, setName] = useState('');
@@ -132,16 +121,17 @@ const SignupPage = ({ onSignupSuccess }) => {
 
                 <div className="helper-row">
                     <span className="badge">{t.helper}</span>
+                    <span className="badge">Docker-ready UI mock</span>
                 </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-username">{t.username}</label>
+                            <label className="label" htmlFor="username">{t.username}</label>
                             <span className="hint">required</span>
                         </div>
                         <input
-                            id="signup-username"
+                            id="username"
                             className="input-field"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
@@ -152,10 +142,11 @@ const SignupPage = ({ onSignupSuccess }) => {
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-name">{t.name}</label>
+                            <label className="label" htmlFor="name">{t.name}</label>
+                            <span className="hint">optional</span>
                         </div>
                         <input
-                            id="signup-name"
+                            id="name"
                             className="input-field"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -166,12 +157,13 @@ const SignupPage = ({ onSignupSuccess }) => {
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-phrase">{t.secretPhrase}</label>
+                            <label className="label" htmlFor="secret-phrase">{t.secretPhrase}</label>
                             <span className="hint">required</span>
                         </div>
                         <input
-                            id="signup-phrase"
+                            id="secret-phrase"
                             className="input-field"
+                            type="text"
                             value={secretPhrase}
                             onChange={(e) => setSecretPhrase(e.target.value)}
                             placeholder={t.phrasePlaceholder}
@@ -181,11 +173,11 @@ const SignupPage = ({ onSignupSuccess }) => {
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-answer">{t.secretAnswer}</label>
+                            <label className="label" htmlFor="secret-answer">{t.secretAnswer}</label>
                             <span className="hint">required</span>
                         </div>
                         <input
-                            id="signup-answer"
+                            id="secret-answer"
                             className="input-field"
                             type="password"
                             value={secretAnswer}
@@ -195,15 +187,14 @@ const SignupPage = ({ onSignupSuccess }) => {
                         />
                     </div>
 
-                    <div className="form-group checkbox">
+                    <label className="checkbox-row">
                         <input
                             type="checkbox"
-                            id="terms"
                             checked={acceptTerms}
                             onChange={(e) => setAcceptTerms(e.target.checked)}
                         />
-                        <label htmlFor="terms">{t.terms}</label>
-                    </div>
+                        {t.terms}
+                    </label>
 
                     {error && <div className="error-banner" role="alert">{error}</div>}
                     {success && <div className="success-banner" role="status">{success}</div>}
@@ -212,22 +203,6 @@ const SignupPage = ({ onSignupSuccess }) => {
                         {isLoading ? 'Creating account...' : t.signup}
                     </button>
                 </form>
-
-                {/* Navigation buttons */}
-                <div className="auth-nav-buttons">
-                    <button 
-                        onClick={() => navigate('/login')}
-                        className="nav-btn login-btn"
-                    >
-                        {t.haveAccount} <strong>{t.login}</strong>
-                    </button>
-                    <button 
-                        onClick={() => navigate('/home')}
-                        className="nav-btn home-btn"
-                    >
-                        {t.backHome}
-                    </button>
-                </div>
             </section>
         </div>
     );

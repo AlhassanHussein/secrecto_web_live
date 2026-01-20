@@ -29,6 +29,53 @@ async def search_users(
     return users
 
 
+@router.get("/username/{username}", response_model=dict)
+async def get_public_profile_by_username(
+    username: str,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Public profile lookup by username for shareable links.
+    Mirrors the /{user_id} response.
+    """
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    public_messages = db.query(Message).filter(
+        Message.receiver_id == user.id,
+        Message.status == MessageStatus.public
+    ).order_by(Message.created_at.desc()).limit(20).all()
+
+    for msg in public_messages:
+        msg.content = decrypt_message(msg.content)
+
+    is_following = False
+    if current_user:
+        follow = db.query(Follow).filter(
+            Follow.follower_id == current_user.id,
+            Follow.following_id == user.id
+        ).first()
+        is_following = bool(follow)
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "name": user.name,
+        "public_messages": [
+            {
+                "id": m.id,
+                "receiver_id": m.receiver_id,
+                "content": m.content,
+                "status": m.status.value,
+                "created_at": m.created_at
+            } for m in public_messages
+        ],
+        "is_following": is_following
+    }
+
+
 @router.get("/{user_id}", response_model=dict)
 async def get_public_profile(
     user_id: int,

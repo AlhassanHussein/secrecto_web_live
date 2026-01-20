@@ -83,33 +83,11 @@ services:
     networks:
       - saytruth-network
 
-  # 4. Nginx Internal Reverse Proxy
-  # Routes /api/* to backend, / to frontend
-  # Handles internal load balancing and routing
-  # NOT exposed to public (only Caddy is exposed)
-  nginx:
-    image: nginx:alpine
-    container_name: saytruth-nginx
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    expose:
-      - "80"
-    depends_on:
-      - saytruth-api
-      - saytruth-app
-    networks:
-      - saytruth-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # 5. Caddy Reverse Proxy with HTTPS
-  # Public-facing proxy that handles:
+  # 4. Caddy Reverse Proxy with HTTPS + Routing
+  # Single public-facing proxy that handles:
   # - HTTPS termination (auto-generates certificates)
-  # - Domain routing
-  # - Only service exposed to ports 80 and 443
+  # - All routing (/api/* to backend, / to frontend)
+  # - SSL/TLS with automatic Let's Encrypt or self-signed certs
   caddy:
     image: caddy:alpine
     container_name: saytruth-caddy
@@ -123,7 +101,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - nginx
+      - saytruth-api
+      - saytruth-app
     networks:
       - saytruth-network
     environment:

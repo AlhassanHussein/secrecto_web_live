@@ -1,46 +1,38 @@
-{$DOMAIN} {
-    # Log HTTP request details (disable in production for performance)
+{
+    auto_https off
+}
+
+localhost:80 {
     log {
         level info
     }
 
-    # Reverse proxy to internal Nginx server
-    reverse_proxy nginx:80 {
-        # Headers for upstream server
-        header_up Host {host}
-        header_up X-Real-IP {remote_addr}
-        header_up X-Forwarded-For {remote_addr}
-        header_up X-Forwarded-Proto {scheme}
-        
-        # Health check
-        health_uri /health
-        health_interval 10s
-        health_timeout 5s
+    # Health endpoint
+    respond /health "OK" 200
+
+    # API proxy
+    route /api/* {
+        reverse_proxy saytruth-api:8000 {
+            header_up Host "localhost"
+            header_up X-Real-IP {remote_addr}
+            header_up X-Forwarded-For {remote_addr}
+            header_up X-Forwarded-Proto "http"
+        }
     }
 
-    # Enable gzip compression
+    # Frontend proxy - everything else except /health and /api/*
+    @notapi {
+        not path /health
+        not path /api/*
+    }
+    route @notapi {
+        reverse_proxy saytruth-app:5173 {
+            header_up Host "localhost"
+            header_up X-Real-IP {remote_addr}
+            header_up X-Forwarded-For {remote_addr}
+            header_up X-Forwarded-Proto "http"
+        }
+    }
+
     encode gzip
-
-    # HTTPS configuration
-    # For local development with {$AUTO_HTTPS} = off, use self-signed certificates
-    # For production, set AUTO_HTTPS = on for Let's Encrypt
-    tls {$CADDY_EMAIL} {
-        # On-demand TLS for dynamic domains (optional)
-        on_demand
-    }
-
-    # Security headers
-    header / X-Content-Type-Options nosniff
-    header / X-Frame-Options SAMEORIGIN
-    header / X-XSS-Protection "1; mode=block"
-    header / Referrer-Policy "strict-origin-when-cross-origin"
-
-    # CORS headers (if needed at Caddy level)
-    header / Access-Control-Allow-Origin "*"
-    header / Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-    header / Access-Control-Allow-Headers "Content-Type, Authorization"
-
-    # Cache control (adjust based on needs)
-    header / Cache-Control "public, max-age=3600"
-    header /api Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate"
 }

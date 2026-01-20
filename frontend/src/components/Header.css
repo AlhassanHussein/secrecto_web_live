@@ -88,6 +88,16 @@
     color: var(--gray-800);
 }
 
+@media (max-width: 375px) {
+    .logo-text {
+        display: none;
+    }
+
+    .username {
+        font-size: var(--font-size-xs);
+    }
+}
+
 .profile-btn {
     display: flex;
     align-items: center;
@@ -111,14 +121,4 @@
 
 .profile-btn:active {
     transform: scale(0.95);
-}
-
-@media (max-width: 375px) {
-    .logo-text {
-        display: none;
-    }
-
-    .username {
-        font-size: var(--font-size-xs);
-    }
 }

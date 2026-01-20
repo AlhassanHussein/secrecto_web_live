@@ -48,7 +48,11 @@ const translations = {
 
 const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onSignupClick, onSettingsClick }) => {
     const [language, setLanguage] = useState('EN');
+    const [copied, setCopied] = useState(false);
     const username = isAuthenticated ? currentUser?.username || 'User' : 'Guest';
+    const targetUsername = isAuthenticated && currentUser?.username ? currentUser.username : 'guest';
+    const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
+    const canonicalUrl = `${origin}/profile/${targetUsername}`;
 
     const mockLinks = [
         { id: 1, label: 'Confession board', status: 'active', timeLeft: '2h 14m' },
@@ -94,18 +98,31 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
                 </div>
 
                 <div className="hero-controls">
-                    <div className="language-toggle" aria-label="Language selector">
-                        {Object.keys(translations).map((lang) => (
-                            <button
-                                key={lang}
-                                className={`lang-pill ${language === lang ? 'active' : ''}`}
-                                onClick={() => setLanguage(lang)}
-                            >
-                                {lang}
-                            </button>
-                        ))}
-                    </div>
                     <div className="chip subtle">Soft blues, touch-friendly, animated.</div>
+                    <div
+                        className="chip subtle clickable"
+                        role="button"
+                        aria-label="Copy profile URL"
+                        onClick={() => {
+                            if (navigator?.clipboard?.writeText) {
+                                navigator.clipboard.writeText(canonicalUrl).then(() => {
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 1500);
+                                }).catch(() => {});
+                            }
+                        }}
+                    >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                            <span>Profile URL:</span>
+                        </span>
+                        <a href={`/profile/${targetUsername}`} style={{ marginLeft: '0.35rem' }}>/profile/{targetUsername}</a>
+                        <span className="copy-pill" style={{ marginLeft: '0.35rem' }}>Copy</span>
+                        {copied && <span style={{ marginLeft: '0.5rem', fontWeight: 700 }}>Copied!</span>}
+                    </div>
                 </div>
 
                 <div className="stat-row">

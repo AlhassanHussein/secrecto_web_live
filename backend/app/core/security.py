@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 import os
+import hashlib
 
 from cryptography.fernet import Fernet
 from jose import JWTError, jwt
@@ -34,12 +35,24 @@ def decrypt_message(encrypted_content: str) -> str:
         return "[Message content unavailable]"
 
 
+def _preprocess_for_bcrypt(password: str) -> str:
+    """
+    Preprocess password for bcrypt to avoid 72-byte limit.
+    Truncate to 72 bytes before hashing to ensure bcrypt compatibility.
+    """
+    # Truncate to 72 bytes to respect bcrypt's password length limit
+    truncated = password[:72]
+    return truncated
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    preprocessed = _preprocess_for_bcrypt(plain_password)
+    return pwd_context.verify(preprocessed, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    preprocessed = _preprocess_for_bcrypt(password)
+    return pwd_context.hash(preprocessed)
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
@@ -47,6 +60,7 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
     to_encode: dict[str, Any] = {"sub": subject, "exp": expire}
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
 
 
 def decode_access_token(token: str) -> Optional[str]:

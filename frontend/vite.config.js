@@ -7,8 +7,16 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    middlewareMode: false,
+    allowedHosts: ['localhost', '127.0.0.1', 'saytruth-app', '172.18.0.4'],
     watch: {
       usePolling: true,
+    },
+    // For development, allow connections from any origin
+    hmr: {
+      host: 'localhost',
+      port: 5173,
+      protocol: 'http',
     },
   },
 })

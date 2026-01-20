@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { authAPI } from './services/api';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
@@ -19,15 +20,68 @@ import PrivateLinkPage from './components/PrivateLinkPage';
 import './App.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('home');
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [selectedUser, setSelectedUser] = useState(null);
   const [activeLinks, setActiveLinks] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [showAuthPage, setShowAuthPage] = useState(null); // 'login', 'signup', 'recovery', 'settings'
-  const [linkPageType, setLinkPageType] = useState(null); // 'public' or 'private'
-  const [linkId, setLinkId] = useState(null); // public_id or private_id
   const [language, setLanguage] = useState('EN');
+
+  // Determine active tab based on URL
+  const getActiveTabFromPath = () => {
+    const path = location.pathname;
+    if (path === '/' || path === '/home') return 'home';
+    if (path === '/links') return 'links';
+    if (path === '/search') return 'search';
+    if (path === '/messages') return 'messages';
+    if (path === '/profile' || path.startsWith('/profile/')) return 'profile';
+    return 'home';
+  };
+
+  const activeTab = getActiveTabFromPath();
+
+  const UserProfileRouteWrapper = ({ isAuthenticated, currentUser, selectedUser }) => {
+    const { username } = useParams();
+    return (
+      <UserProfilePage
+        username={username}
+        selectedUser={selectedUser}
+        isAuthenticated={isAuthenticated}
+        currentUser={currentUser}
+        onBack={() => navigate('/search')}
+        onLoginClick={() => navigate('/login')}
+      />
+    );
+  };
+
+  const ProfileRouteWrapper = ({ isAuthenticated, currentUser }) => {
+    const { username } = useParams();
+    // If authenticated, always force the URL to your own username
+    if (isAuthenticated) {
+      if (!currentUser?.username) {
+        return <Navigate to="/profile/guest" replace />;
+      }
+      if (username !== currentUser.username) {
+        return <Navigate to={`/profile/${currentUser.username}`} replace />;
+      }
+    } else {
+      // If not authenticated, any non-guest profile path should point to guest
+      if (username !== 'guest') {
+        return <Navigate to="/profile/guest" replace />;
+      }
+    }
+    return (
+      <ProfilePage
+        isAuthenticated={isAuthenticated}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onLoginClick={() => navigate('/login')}
+        onSignupClick={() => navigate('/signup')}
+        onSettingsClick={() => requireAuth() && navigate('/settings')}
+      />
+    );
+  };
 
   useEffect(() => {
     // Check if user is already logged in
@@ -42,20 +96,6 @@ function App() {
       }
     };
     checkAuth();
-
-    // Parse URL for link pages
-    const path = window.location.pathname;
-    if (path.startsWith('/link/private/')) {
-      const privateId = path.split('/link/private/')[1];
-      if (privateId) {
-        handleViewPrivateLink(privateId);
-      }
-    } else if (path.startsWith('/link/')) {
-      const publicId = path.split('/link/')[1];
-      if (publicId) {
-        handleViewPublicLink(publicId);
-      }
-    }
   }, []);
 
   const handleCreateLink = (newLink) => {
@@ -67,193 +107,190 @@ function App() {
   };
 
   const handleLoginSuccess = () => {
-    setShowAuthPage(null);
     setIsAuthenticated(true);
-    setActiveTab('home');
-    // Reload user info
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
+    navigate('/home');
   };
 
   const handleSignupSuccess = () => {
-    setShowAuthPage(null);
     setIsAuthenticated(true);
-    setActiveTab('home');
-    // Reload user info
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
+    navigate('/home');
   };
 
   const handleRecoverySuccess = () => {
-    setShowAuthPage(null);
     setIsAuthenticated(true);
-    setActiveTab('home');
-    // Reload user info
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
+    navigate('/home');
   };
 
   const handleLogout = () => {
     authAPI.logout();
     setIsAuthenticated(false);
     setCurrentUser(null);
-    setActiveTab('home');
-    setShowAuthPage('login'); // Redirect to login after logout
+    navigate('/login');
   };
 
   const handleLanguageChange = (newLang) => {
     setLanguage(newLang);
-    // Reload user info after language change
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
   };
 
-  // Handle link page navigation
-  const handleViewPublicLink = (publicId) => {
-    setLinkPageType('public');
-    setLinkId(publicId);
-  };
-
-  const handleViewPrivateLink = (privateId) => {
-    setLinkPageType('private');
-    setLinkId(privateId);
-  };
-
-  const handleCloseLinkPage = () => {
-    setLinkPageType(null);
-    setLinkId(null);
-    setActiveTab('home');
-  };
-
-  // Auth guard: redirect to login/signup if trying to access protected features
-  const requireAuth = (callback) => {
+  // Auth guard
+  const requireAuth = () => {
     if (!isAuthenticated) {
-      setShowAuthPage('login');
+      navigate('/login');
       return false;
     }
-    callback();
     return true;
   };
 
-  // Render auth pages
-  if (showAuthPage === 'login') {
-    return (
-      <LoginPage
-        onLoginSuccess={handleLoginSuccess}
-        onForgotPassword={() => setShowAuthPage('recovery')}
-      />
-    );
-  }
-  if (showAuthPage === 'signup') {
-    return <SignupPage onSignupSuccess={handleSignupSuccess} />;
-  }
-  if (showAuthPage === 'recovery') {
-    return (
-      <PasswordRecoveryPage
-        onRecoverySuccess={handleRecoverySuccess}
-        onBackToLogin={() => setShowAuthPage('login')}
-      />
-    );
-  }
-  if (showAuthPage === 'settings') {
-    return (
-      <SettingsPage
-        currentUser={currentUser}
-        onLogout={handleLogout}
-        onLanguageChange={handleLanguageChange}
-      />
-    );
-  }
-
-  const renderTabContent = () => {
-    // Show link pages if active
-    if (linkPageType === 'public' && linkId) {
-      return (
-        <div>
-          <PublicLinkPage publicId={linkId} language={language} />
-          <div className="link-page-close">
-            <button onClick={handleCloseLinkPage} className="btn secondary">
-              ← Back
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (linkPageType === 'private' && linkId) {
-      return (
-        <div>
-          <PrivateLinkPage privateId={linkId} language={language} />
-          <div className="link-page-close">
-            <button onClick={handleCloseLinkPage} className="btn secondary">
-              ← Back
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // Show user profile page if selected
-    if (activeTab === 'user-profile' && selectedUserId) {
-      return (
-        <UserProfilePage
-          userId={selectedUserId}
-          isAuthenticated={isAuthenticated}
-          currentUser={currentUser}
-          onBack={() => setActiveTab('search')}
-          onLoginClick={() => setShowAuthPage('login')}
-        />
-      );
-    }
-
-    switch (activeTab) {
-      case 'home':
-        return (
-          <>
-            <HomeTab language={language} onLinkCreated={handleViewPrivateLink} />
-            <CreateLinkSection onCreateLink={handleCreateLink} />
-            <ActiveLinksSection links={activeLinks} onDeleteLink={handleDeleteLink} />
-          </>
-        );
-      case 'links':
-        return <LinksTab links={activeLinks} />;
-      case 'search':
-        return (
-          <SearchTab
-            isAuthenticated={isAuthenticated}
-            onUserClick={(userId) => {
-              setSelectedUserId(userId);
-              setActiveTab('user-profile');
-            }}
-          />
-        );
-      case 'messages':
-        return (
-          <MessagesTab
-            onMessageClick={() => requireAuth(() => {})} // Trigger auth check
-          />
-        );
-      case 'profile':
-        return (
-          <ProfilePage
-            isAuthenticated={isAuthenticated}
-            currentUser={currentUser}
-            onLogout={handleLogout}
-            onLoginClick={() => setShowAuthPage('login')}
-            onSignupClick={() => setShowAuthPage('signup')}
-            onSettingsClick={() => requireAuth(() => setShowAuthPage('settings'))}
-          />
-        );
-      default:
-        return null;
-    }
+  const handleTabChange = (tab) => {
+    const pathMap = {
+      home: '/home',
+      links: '/links',
+      search: '/search',
+      messages: '/messages',
+      profile: isAuthenticated && currentUser?.username ? `/profile/${currentUser.username}` : '/profile/guest',
+    };
+    navigate(pathMap[tab] || '/home');
   };
+
+  // Only show BottomNav and Header when not on auth pages
+  const isAuthPage = location.pathname === '/login' || 
+                     location.pathname === '/signup' || 
+                     location.pathname === '/recover';
+  const isLinkPage = location.pathname.startsWith('/link/');
 
   return (
     <div className="app">
-      <Header />
+      {!isAuthPage && !isLinkPage && (
+        <Header isAuthenticated={isAuthenticated} currentUser={currentUser} />
+      )}
 
       <main className="main-content">
-        {renderTabContent()}
+        <Routes>
+          {/* Auth Routes */}
+          <Route
+            path="/login"
+            element={
+              <LoginPage
+                onLoginSuccess={handleLoginSuccess}
+                onForgotPassword={() => navigate('/recover')}
+              />
+            }
+          />
+          <Route
+            path="/signup"
+            element={<SignupPage onSignupSuccess={handleSignupSuccess} />}
+          />
+          <Route
+            path="/recover"
+            element={
+              <PasswordRecoveryPage
+                onRecoverySuccess={handleRecoverySuccess}
+                onBackToLogin={() => navigate('/login')}
+              />
+            }
+          />
+
+          {/* Link Pages */}
+          <Route
+            path="/link/public/:publicId"
+            element={
+              <div>
+                <PublicLinkPage
+                  publicId={location.pathname.split('/link/public/')[1]}
+                  language={language}
+                />
+                <div className="link-page-close">
+                  <button onClick={() => navigate('/home')} className="btn secondary">
+                    ← Back
+                  </button>
+                </div>
+              </div>
+            }
+          />
+          <Route
+            path="/link/private/:privateId"
+            element={
+              <div>
+                <PrivateLinkPage
+                  privateId={location.pathname.split('/link/private/')[1]}
+                  language={language}
+                />
+                <div className="link-page-close">
+                  <button onClick={() => navigate('/home')} className="btn secondary">
+                    ← Back
+                  </button>
+                </div>
+              </div>
+            }
+          />
+
+          {/* Main App Routes */}
+          <Route
+            path="/home"
+            element={
+              <>
+                <HomeTab language={language} onLinkCreated={handleCreateLink} />
+                <CreateLinkSection onCreateLink={handleCreateLink} />
+                <ActiveLinksSection links={activeLinks} onDeleteLink={handleDeleteLink} />
+              </>
+            }
+          />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+          <Route path="/links" element={<LinksTab links={activeLinks} />} />
+          <Route
+            path="/search"
+            element={
+              <SearchTab
+                isAuthenticated={isAuthenticated}
+                currentUser={currentUser}
+                onUserClick={(user) => {
+                  setSelectedUser(user);
+                  navigate(`/user/${user.username}`);
+                }}
+              />
+            }
+          />
+          <Route
+            path="/user/:username"
+            element={<UserProfileRouteWrapper
+              isAuthenticated={isAuthenticated}
+              currentUser={currentUser}
+              selectedUser={selectedUser}
+            />}
+          />
+          <Route
+            path="/messages"
+            element={<MessagesTab onMessageClick={() => requireAuth()} />}
+          />
+          <Route
+            path="/settings"
+            element={
+              <SettingsPage
+                currentUser={currentUser}
+                onLogout={handleLogout}
+                onLanguageChange={handleLanguageChange}
+              />
+            }
+          />
+          <Route
+            path="/profile"
+            element={<Navigate to={isAuthenticated && currentUser?.username ? `/profile/${currentUser.username}` : '/profile/guest'} replace />}
+          />
+          <Route
+            path="/profile/:username"
+            element={<ProfileRouteWrapper isAuthenticated={isAuthenticated} currentUser={currentUser} />}
+          />
+        </Routes>
       </main>
 
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {!isAuthPage && !isLinkPage && (
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      )}
     </div>
   );
 }

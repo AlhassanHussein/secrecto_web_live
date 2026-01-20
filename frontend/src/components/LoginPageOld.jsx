@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 import './AuthPages.css';
 
@@ -14,9 +13,6 @@ const translations = {
         forgot: 'Forgot secret phrase?',
         helper: 'Secure login with secret answer.',
         error: 'Invalid credentials. Try again.',
-        noAccount: "Don't have an account?",
-        signup: 'Sign up',
-        backHome: 'Back to home',
     },
     AR: {
         eyebrow: 'تسجيل الدخول',
@@ -28,9 +24,6 @@ const translations = {
         forgot: 'نسيت العبارة السرية؟',
         helper: 'تسجيل دخول آمن بالإجابة السرية.',
         error: 'بيانات الدخول غير صحيحة.',
-        noAccount: 'ليس لديك حساب؟',
-        signup: 'إنشاء حساب',
-        backHome: 'العودة للرئيسية',
     },
     ES: {
         eyebrow: 'Ingresar',
@@ -42,14 +35,10 @@ const translations = {
         forgot: '¿Olvidaste la frase secreta?',
         helper: 'Inicio seguro con respuesta secreta.',
         error: 'Credenciales inválidas. Intenta de nuevo.',
-        noAccount: '¿No tienes una cuenta?',
-        signup: 'Registrarse',
-        backHome: 'Volver a inicio',
     },
 };
 
 const LoginPage = ({ onLoginSuccess, onForgotPassword }) => {
-    const navigate = useNavigate();
     const [language, setLanguage] = useState('EN');
     const [username, setUsername] = useState('');
     const [secretAnswer, setSecretAnswer] = useState('');
@@ -148,25 +137,9 @@ const LoginPage = ({ onLoginSuccess, onForgotPassword }) => {
                 <div
                     className="secondary-link"
                     onClick={() => onForgotPassword && onForgotPassword()}
-                    style={{ cursor: 'pointer', marginBottom: '1rem' }}
+                    style={{ cursor: 'pointer' }}
                 >
                     {t.forgot}
-                </div>
-
-                {/* Navigation buttons */}
-                <div className="auth-nav-buttons">
-                    <button 
-                        onClick={() => navigate('/signup')}
-                        className="nav-btn signup-btn"
-                    >
-                        {t.noAccount} <strong>{t.signup}</strong>
-                    </button>
-                    <button 
-                        onClick={() => navigate('/home')}
-                        className="nav-btn home-btn"
-                    >
-                        {t.backHome}
-                    </button>
                 </div>
             </section>
         </div>

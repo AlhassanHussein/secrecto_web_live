@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
-import { userAPI } from '../services/api';
+import { userAPI, messagesAPI } from '../services/api';
 import './ProfilePage.css'; // Reuse profile styles
 
-const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLoginClick }) => {
+const UserProfilePage = ({ username, selectedUser, isAuthenticated, currentUser, onBack, onLoginClick }) => {
     const [profile, setProfile] = useState(null);
     const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [language, setLanguage] = useState('EN');
+    const [messageContent, setMessageContent] = useState('');
+    const [messageStatus, setMessageStatus] = useState(null);
+    const [copied, setCopied] = useState(false);
 
     const translations = {
         EN: {
             back: '← Back',
             sendAnonymous: 'Send Anonymous Message',
+            sendPlaceholder: 'Write an anonymous note...',
+            sendCta: 'Send message',
+            sent: 'Message sent',
+            emptyError: 'Message cannot be empty',
             follow: 'Follow',
             unfollow: 'Unfollow',
             following: 'Following',
@@ -28,6 +35,10 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
         AR: {
             back: '← رجوع',
             sendAnonymous: 'إرسال رسالة مجهولة',
+            sendPlaceholder: 'اكتب رسالة مجهولة...',
+            sendCta: 'إرسال الرسالة',
+            sent: 'تم إرسال الرسالة',
+            emptyError: 'لا يمكن أن تكون الرسالة فارغة',
             follow: 'متابعة',
             unfollow: 'إلغاء المتابعة',
             following: 'يتابع',
@@ -43,6 +54,10 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
         ES: {
             back: '← Atrás',
             sendAnonymous: 'Enviar mensaje anónimo',
+            sendPlaceholder: 'Escribe un mensaje anónimo...',
+            sendCta: 'Enviar mensaje',
+            sent: 'Mensaje enviado',
+            emptyError: 'El mensaje no puede estar vacío',
             follow: 'Seguir',
             unfollow: 'Dejar de seguir',
             following: 'Siguiendo',
@@ -59,16 +74,24 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
 
     const t = translations[language];
     const isRTL = language === 'AR';
+    const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
 
     useEffect(() => {
         loadProfile();
-    }, [userId]);
+    }, [username, selectedUser?.id]);
 
     const loadProfile = async () => {
         try {
             setLoading(true);
             setError(null);
-            const data = await userAPI.getUserProfile(userId);
+            let data;
+            if (username) {
+                data = await userAPI.getUserByUsername(username);
+            } else if (selectedUser?.id) {
+                data = await userAPI.getUserProfile(selectedUser.id);
+            } else {
+                throw new Error('No user provided');
+            }
             setProfile(data);
             setIsFollowing(data.is_following || false);
         } catch (err) {
@@ -87,10 +110,10 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
 
         try {
             if (isFollowing) {
-                await userAPI.unfollowUser(userId);
+                await userAPI.unfollowUser(profile.id);
                 setIsFollowing(false);
             } else {
-                await userAPI.followUser(userId);
+                await userAPI.followUser(profile.id);
                 setIsFollowing(true);
             }
         } catch (err) {
@@ -99,13 +122,18 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
     };
 
     const handleSendMessage = async () => {
-        const content = prompt(t.sendAnonymous + ':');
-        if (!content) return;
+        const trimmed = messageContent.trim();
+        if (!trimmed) {
+            setMessageStatus({ type: 'error', text: t.emptyError });
+            return;
+        }
 
         try {
-            await userAPI.sendAnonymousMessage(userId, content);
-            alert('✓ ' + t.sendAnonymous);
+            await messagesAPI.sendMessage(profile.username, trimmed);
+            setMessageStatus({ type: 'success', text: t.sent });
+            setMessageContent('');
         } catch (err) {
+            setMessageStatus({ type: 'error', text: t.error });
             console.error('Failed to send message:', err);
         }
     };
@@ -113,7 +141,6 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
     if (loading) {
         return (
             <div className={`user-profile-page ${isRTL ? 'rtl' : ''}`}>
-                <button onClick={onBack} className="back-button">{t.back}</button>
                 <div className="loading">Loading...</div>
             </div>
         );
@@ -122,11 +149,39 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
     if (error || !profile) {
         return (
             <div className={`user-profile-page ${isRTL ? 'rtl' : ''}`}>
-                <button onClick={onBack} className="back-button">{t.back}</button>
                 <div className="error-state card">
                     <p className="error-icon">⚠️</p>
                     <p className="error-title">{t.error}</p>
                     <button onClick={loadProfile} className="action primary">{t.retry}</button>
+                </div>
+
+                <div className="hero-controls">
+                    {profile && (
+                        <div
+                            className="chip subtle"
+                            role="button"
+                            aria-label="Copy user URL"
+                            onClick={() => {
+                                const canonicalUrl = `${origin}/user/${profile.username}`;
+                                if (navigator?.clipboard?.writeText) {
+                                    navigator.clipboard.writeText(canonicalUrl).then(() => {
+                                        setCopied(true);
+                                        setTimeout(() => setCopied(false), 1500);
+                                    }).catch(() => {});
+                                }
+                            }}
+                        >
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                                </svg>
+                                <span>Share URL:</span>
+                            </span>
+                            <a href={`/user/${profile.username}`} style={{ marginLeft: '0.35rem' }}>/user/{profile.username}</a>
+                            {copied && <span style={{ marginLeft: '0.5rem', fontWeight: 700 }}>Copied!</span>}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -134,8 +189,6 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
 
     return (
         <div className={`user-profile-page ${isRTL ? 'rtl' : ''}`}>
-            <button onClick={onBack} className="back-button">{t.back}</button>
-
             <section className="profile-hero card">
                 <div className="hero-row">
                     <div className="hero-copy">
@@ -151,36 +204,82 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
                     </div>
                 </div>
 
-                <div className="action-row">
-                    <button onClick={handleSendMessage} className="action primary">
-                        {t.sendAnonymous}
-                    </button>
-
-                    {isAuthenticated ? (
-                        <button
-                            onClick={handleFollow}
-                            className={`action ${isFollowing ? 'outline' : 'soft'}`}
+                <div className="hero-controls">
+                    {profile && (
+                        <div
+                            className="chip subtle clickable"
+                            role="button"
+                            aria-label="Copy user URL"
+                            onClick={() => {
+                                const canonicalUrl = `${origin}/user/${profile.username}`;
+                                if (navigator?.clipboard?.writeText) {
+                                    navigator.clipboard.writeText(canonicalUrl).then(() => {
+                                        setCopied(true);
+                                        setTimeout(() => setCopied(false), 1500);
+                                    }).catch(() => {});
+                                }
+                            }}
                         >
-                            {isFollowing ? t.following : t.follow}
-                        </button>
-                    ) : (
-                        <button onClick={onLoginClick} className="action soft">
-                            {t.loginToFollow}
-                        </button>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                                </svg>
+                                <span>Share URL:</span>
+                            </span>
+                            <a href={`/user/${profile.username}`} style={{ marginLeft: '0.35rem' }}>/user/{profile.username}</a>
+                            <span className="copy-pill" style={{ marginLeft: '0.35rem' }}>Copy</span>
+                            {copied && <span style={{ marginLeft: '0.5rem', fontWeight: 700 }}>Copied!</span>}
+                        </div>
                     )}
                 </div>
 
-                <div className="language-toggle" aria-label="Language selector">
-                    {Object.keys(translations).map((lang) => (
+                <div className="message-composer card">
+                    <div className="composer-header">
+                        <div>
+                            <p className="eyebrow subtle">{t.sendAnonymous}</p>
+                            <h3 className="composer-title">{profile.username}</h3>
+                        </div>
+                        <span className="count-badge">✉️</span>
+                    </div>
+                    <textarea
+                        className="composer-input"
+                        placeholder={t.sendPlaceholder}
+                        value={messageContent}
+                        onChange={(e) => {
+                            setMessageContent(e.target.value);
+                            if (messageStatus) setMessageStatus(null);
+                        }}
+                        maxLength={500}
+                    />
+                    {messageStatus && (
+                        <div className={`composer-status ${messageStatus.type}`}>
+                            {messageStatus.text}
+                        </div>
+                    )}
+                    <div className="composer-actions">
                         <button
-                            key={lang}
-                            className={`lang-pill ${language === lang ? 'active' : ''}`}
-                            onClick={() => setLanguage(lang)}
+                            className="action primary"
+                            onClick={handleSendMessage}
+                            disabled={!messageContent.trim()}
                         >
-                            {lang}
+                            {t.sendCta}
                         </button>
-                    ))}
+                        {isAuthenticated ? (
+                            <button
+                                onClick={handleFollow}
+                                className={`action ${isFollowing ? 'outline' : 'soft'}`}
+                            >
+                                {isFollowing ? t.following : t.follow}
+                            </button>
+                        ) : (
+                            <button onClick={onLoginClick} className="action soft">
+                                {t.loginToFollow}
+                            </button>
+                        )}
+                    </div>
                 </div>
+
             </section>
 
             <section className="profile-card card">
