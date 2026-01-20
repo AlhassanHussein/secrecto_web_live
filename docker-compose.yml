@@ -131,18 +131,14 @@ services:
       - CADDY_EMAIL=${CADDY_EMAIL:-admin@saytruth.local}
       - AUTO_HTTPS=${AUTO_HTTPS:-off}
 
-networks:
-  saytruth-network:
-    driver: bridge
-
+# Persistent volumes for Caddy data and config
 volumes:
   caddy_data:
     driver: local
   caddy_config:
     driver: local
 
-    networks:
-      - saytruth-network
+
 
 # Network for container communication
 # All services can communicate via service names (e.g., saytruth-api:8000)

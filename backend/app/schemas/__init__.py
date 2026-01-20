@@ -1,6 +1,6 @@
 from app.schemas.schemas import (
-    FriendAdd,
-    FriendResponse,
+   
+   
     LinkCreate,
     LinkResponse,
     MessageCreate,
@@ -17,8 +17,8 @@ from app.schemas.schemas import (
 )
 
 __all__ = [
-    "FriendAdd",
-    "FriendResponse",
+  
+   
     "LinkCreate",
     "LinkResponse",
     "MessageCreate",

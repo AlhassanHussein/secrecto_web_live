@@ -1,9 +1,19 @@
-from app.models.models import Friend, Link, Message, MessageStatus, User
+from app.models.models import (
+    Follow,
+    Link,
+    LinkMessage,
+    LinkStatus,
+    Message,
+    MessageStatus,
+    User,
+)
 
 __all__ = [
-    "Friend",
-    "Link",
-    "Message",
-    "MessageStatus",
     "User",
+    "Message",
+    "Link",
+    "LinkMessage",
+    "Follow",
+    "MessageStatus",
+    "LinkStatus",
 ]
