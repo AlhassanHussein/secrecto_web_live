@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ limiter = Limiter(key_func=get_remote_address)
 @router.post("/search", response_model=List[UserResponse])
 @limiter.limit("10/minute")
 async def search_users(
+    request: Request,
     search_data: UserSearch,
     db: Session = Depends(get_db)
 ) -> List[User]:
@@ -78,6 +79,7 @@ async def get_public_profile(
 @router.post("/follow/{user_id}", status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
 async def follow_user(
+    request: Request,
     user_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

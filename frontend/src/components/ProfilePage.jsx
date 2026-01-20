@@ -198,7 +198,7 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
                             </span>
                         ))}
                     </div>
-                    </div>
+                   
                 )}
             </section>
 
@@ -216,6 +216,5 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
             )}
         </div>
     );
-};
-
+}
 export default ProfilePage;

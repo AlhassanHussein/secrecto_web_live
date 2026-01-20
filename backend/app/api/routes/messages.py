@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -81,6 +81,7 @@ async def get_inbox(
 @router.post("/send", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 async def send_message(
+    request: Request,
     message_data: MessageCreate,
     current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)

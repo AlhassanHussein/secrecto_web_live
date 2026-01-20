@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
@@ -34,7 +34,7 @@ EXPIRATION_MAP = {
 
 def cleanup_expired_links(db: Session) -> None:
     """Delete expired links and their messages"""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expired_links = db.query(Link).filter(
         Link.expires_at.isnot(None),
         Link.expires_at <= now,
@@ -49,6 +49,7 @@ def cleanup_expired_links(db: Session) -> None:
 @router.post("/create", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
 async def create_link(
+    request: Request,
     link_data: LinkCreate,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
@@ -65,7 +66,7 @@ async def create_link(
     expires_at = None
     if link_data.expiration_option != "permanent":
         hours = EXPIRATION_MAP.get(link_data.expiration_option, 24)
-        expires_at = datetime.utcnow() + timedelta(hours=hours)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=hours)
     
     # Create link
     new_link = Link(
@@ -102,7 +103,7 @@ async def get_link_info(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expires_at and datetime.utcnow() > link.expires_at:
+    if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
         link.status = LinkStatus.deleted
         db.commit()
         raise HTTPException(status_code=404, detail="Link expired")
@@ -116,6 +117,7 @@ async def get_link_info(
 @router.post("/{public_id}/send", response_model=dict, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def send_message_to_link(
+    request: Request,
     public_id: str,
     message_data: LinkMessageCreate,
     db: Session = Depends(get_db)
@@ -133,7 +135,7 @@ async def send_message_to_link(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expires_at and datetime.utcnow() > link.expires_at:
+    if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
         link.status = LinkStatus.deleted
         db.commit()
         raise HTTPException(status_code=404, detail="Link expired")
@@ -176,7 +178,7 @@ async def get_link_messages(
         raise HTTPException(status_code=404, detail="Link not found")
     
     # Check if expired
-    if link.expires_at and datetime.utcnow() > link.expires_at:
+    if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
         link.status = LinkStatus.deleted
         db.commit()
         raise HTTPException(status_code=404, detail="Link expired")
