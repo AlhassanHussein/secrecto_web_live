@@ -18,7 +18,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(255), unique=True, nullable=False, index=True)
-    secret_phrase = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=True)  # Optional display name
+    secret_phrase = Column(String(255), nullable=False)  # Stored as hint/question
+    secret_answer = Column(String(255), nullable=False)  # Hashed answer for auth
+    language = Column(String(2), nullable=False, default="EN")  # EN, AR, ES
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

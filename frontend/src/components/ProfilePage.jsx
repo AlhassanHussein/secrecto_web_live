@@ -11,7 +11,7 @@ const translations = {
         linksEmpty: 'No links yet. Create one from Home.',
         friendsTitle: 'Friends list',
         friendsEmpty: 'No friends yet. Add some from Search.',
-        actions: { logout: 'Logout', edit: 'Edit profile', viewLinks: 'View links', viewMessages: 'Messages', login: 'Login', signup: 'Signup' },
+        actions: { logout: 'Logout', edit: 'Edit profile', viewLinks: 'View links', viewMessages: 'Messages', login: 'Login', signup: 'Signup', settings: 'Settings' },
         badges: { active: 'Active', expiring: 'Expiring soon' },
         guestTitle: 'Guest Mode',
         guestSubtitle: 'Login or signup to save your data and access more features.',
@@ -25,7 +25,7 @@ const translations = {
         linksEmpty: 'لا توجد روابط بعد. أنشئ رابطًا من الصفحة الرئيسية.',
         friendsTitle: 'قائمة الأصدقاء',
         friendsEmpty: 'لا يوجد أصدقاء بعد. أضف بعضهم من البحث.',
-        actions: { logout: 'تسجيل الخروج', edit: 'تعديل الملف', viewLinks: 'عرض الروابط', viewMessages: 'الرسائل', login: 'تسجيل الدخول', signup: 'إنشاء حساب' },
+        actions: { logout: 'تسجيل الخروج', edit: 'تعديل الملف', viewLinks: 'عرض الروابط', viewMessages: 'الرسائل', login: 'تسجيل الدخول', signup: 'إنشاء حساب', settings: 'الإعدادات' },
         badges: { active: 'نشط', expiring: 'سينتهي قريبًا' },
         guestTitle: 'وضع الضيف',
         guestSubtitle: 'سجل دخولك أو أنشئ حسابًا لحفظ بياناتك.',
@@ -39,14 +39,14 @@ const translations = {
         linksEmpty: 'Sin enlaces aún. Crea uno desde Inicio.',
         friendsTitle: 'Lista de amigos',
         friendsEmpty: 'Sin amigos aún. Añade desde Búsqueda.',
-        actions: { logout: 'Cerrar sesión', edit: 'Editar perfil', viewLinks: 'Ver enlaces', viewMessages: 'Mensajes', login: 'Ingresar', signup: 'Registrarse' },
+        actions: { logout: 'Cerrar sesión', edit: 'Editar perfil', viewLinks: 'Ver enlaces', viewMessages: 'Mensajes', login: 'Ingresar', signup: 'Registrarse', settings: 'Configuración' },
         badges: { active: 'Activo', expiring: 'Próximo a expirar' },
         guestTitle: 'Modo Invitado',
         guestSubtitle: 'Inicia sesión o regístrate para guardar tus datos.',
     },
 };
 
-const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onSignupClick }) => {
+const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onSignupClick, onSettingsClick }) => {
     const [language, setLanguage] = useState('EN');
     const username = isAuthenticated ? currentUser?.username || 'User' : 'Guest';
 
@@ -124,10 +124,25 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
                 </div>
 
                 <div className="action-row">
-                    <button className="action primary">{t.actions.viewLinks}</button>
-                    <button className="action soft">{t.actions.viewMessages}</button>
-                    <button className="action ghost">{t.actions.edit}</button>
-                    <button className="action outline danger">{t.actions.logout}</button>
+                    {isAuthenticated ? (
+                        <>
+                            <button className="action primary" onClick={onSettingsClick}>
+                                {t.actions.settings}
+                            </button>
+                            <button className="action outline danger" onClick={onLogout}>
+                                {t.actions.logout}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button className="action primary" onClick={onLoginClick}>
+                                {t.actions.login}
+                            </button>
+                            <button className="action soft" onClick={onSignupClick}>
+                                {t.actions.signup}
+                            </button>
+                        </>
+                    )}
                 </div>
             </section>
 
@@ -187,6 +202,7 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
             </section>
 
             {/* Guest Mode: Show login/signup buttons */}
+            {/* Guest Mode info */}
             {!isAuthenticated && (
                 <section className="profile-card card">
                     <div className="card-header">
@@ -194,14 +210,6 @@ const ProfilePage = ({ isAuthenticated, currentUser, onLogout, onLoginClick, onS
                             <p className="eyebrow subtle">{t.guestTitle}</p>
                             <h2 className="card-title">{t.guestSubtitle}</h2>
                         </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                        <button className="primary-btn" onClick={onLoginClick} style={{ flex: 1 }}>
-                            {t.actions.login}
-                        </button>
-                        <button className="primary-btn" onClick={onSignupClick} style={{ flex: 1 }}>
-                            {t.actions.signup}
-                        </button>
                     </div>
                 </section>
             )}

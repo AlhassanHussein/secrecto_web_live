@@ -6,47 +6,43 @@ const translations = {
     EN: {
         eyebrow: 'Login',
         title: 'Welcome back',
-        subtitle: 'Enter your username and secret phrase to continue.',
+        subtitle: 'Enter your username and secret answer to continue.',
         username: 'Username',
-        secret: 'Secret Phrase',
+        secretAnswer: 'Secret Answer',
         login: 'Login',
         forgot: 'Forgot secret phrase?',
-        helper: 'Soft blues, smooth inputs, touch-friendly.',
-        hint: 'Your secret phrase reminder is stored securely.',
+        helper: 'Secure login with secret answer.',
         error: 'Invalid credentials. Try again.',
     },
     AR: {
         eyebrow: 'تسجيل الدخول',
         title: 'مرحبًا بعودتك',
-        subtitle: 'أدخل اسم المستخدم والعبارة السرية للمتابعة.',
+        subtitle: 'أدخل اسم المستخدم والإجابة السرية للمتابعة.',
         username: 'اسم المستخدم',
-        secret: 'العبارة السرية',
+        secretAnswer: 'الإجابة السرية',
         login: 'دخول',
         forgot: 'نسيت العبارة السرية؟',
-        helper: 'ألوان هادئة، مدخلات سلسة، ملائم للمس.',
-        hint: 'تذكير العبارة السرية محفوظ بأمان.',
+        helper: 'تسجيل دخول آمن بالإجابة السرية.',
         error: 'بيانات الدخول غير صحيحة.',
     },
     ES: {
         eyebrow: 'Ingresar',
         title: 'Bienvenido de nuevo',
-        subtitle: 'Ingresa tu usuario y frase secreta para continuar.',
+        subtitle: 'Ingresa tu usuario y respuesta secreta para continuar.',
         username: 'Usuario',
-        secret: 'Frase secreta',
+        secretAnswer: 'Respuesta secreta',
         login: 'Entrar',
         forgot: '¿Olvidaste la frase secreta?',
-        helper: 'Azules suaves, inputs fluidos, listo para táctil.',
-        hint: 'Tu recordatorio de frase secreta está guardado.',
+        helper: 'Inicio seguro con respuesta secreta.',
         error: 'Credenciales inválidas. Intenta de nuevo.',
     },
 };
 
-const LoginPage = ({ onLoginSuccess }) => {
+const LoginPage = ({ onLoginSuccess, onForgotPassword }) => {
     const [language, setLanguage] = useState('EN');
     const [username, setUsername] = useState('');
-    const [secret, setSecret] = useState('');
+    const [secretAnswer, setSecretAnswer] = useState('');
     const [error, setError] = useState('');
-    const [showHint, setShowHint] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const t = translations[language];
@@ -55,14 +51,14 @@ const LoginPage = ({ onLoginSuccess }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        if (!username.trim() || !secret.trim()) {
+        if (!username.trim() || !secretAnswer.trim()) {
             setError(t.error);
             return;
         }
 
         setIsLoading(true);
         try {
-            await authAPI.login(username, secret);
+            await authAPI.login(username, secretAnswer);
             if (onLoginSuccess) {
                 onLoginSuccess();
             }
@@ -97,7 +93,6 @@ const LoginPage = ({ onLoginSuccess }) => {
 
                 <div className="helper-row">
                     <span className="badge">{t.helper}</span>
-                    <span className="badge">Remember: 1 message/session rule</span>
                 </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
@@ -118,16 +113,16 @@ const LoginPage = ({ onLoginSuccess }) => {
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="login-secret">{t.secret}</label>
-                            <span className="hint">private</span>
+                            <label className="label" htmlFor="login-secret-answer">{t.secretAnswer}</label>
+                            <span className="hint">required</span>
                         </div>
                         <input
-                            id="login-secret"
+                            id="login-secret-answer"
                             className="input-field"
                             type="password"
-                            value={secret}
-                            onChange={(e) => setSecret(e.target.value)}
-                            placeholder={t.secret}
+                            value={secretAnswer}
+                            onChange={(e) => setSecretAnswer(e.target.value)}
+                            placeholder={t.secretAnswer}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
@@ -139,10 +134,13 @@ const LoginPage = ({ onLoginSuccess }) => {
                     </button>
                 </form>
 
-                <div className="secondary-link" onClick={() => setShowHint(!showHint)}>
+                <div
+                    className="secondary-link"
+                    onClick={() => onForgotPassword && onForgotPassword()}
+                    style={{ cursor: 'pointer' }}
+                >
                     {t.forgot}
                 </div>
-                {showHint && <div className="success-banner" role="status">{t.hint}</div>}
             </section>
         </div>
     );

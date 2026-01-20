@@ -49,10 +49,15 @@ const apiRequest = async (endpoint, options = {}) => {
 // ============ Auth API ============
 
 export const authAPI = {
-  signup: async (username, secretPhrase) => {
+  signup: async (username, name, secretPhrase, secretAnswer) => {
     const data = await apiRequest('/api/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ username, secret_phrase: secretPhrase }),
+      body: JSON.stringify({
+        username,
+        name,
+        secret_phrase: secretPhrase,
+        secret_answer: secretAnswer,
+      }),
       skipAuth: true,
     });
     if (data.access_token) {
@@ -61,16 +66,43 @@ export const authAPI = {
     return data;
   },
 
-  login: async (username, secretPhrase) => {
+  login: async (username, secretAnswer) => {
     const data = await apiRequest('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, secret_phrase: secretPhrase }),
+      body: JSON.stringify({ username, secret_answer: secretAnswer }),
       skipAuth: true,
     });
     if (data.access_token) {
       setAuthToken(data.access_token);
     }
     return data;
+  },
+
+  recoverPassword: async (username) => {
+    return apiRequest('/api/auth/recover', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+      skipAuth: true,
+    });
+  },
+
+  verifyRecovery: async (username, secretAnswer) => {
+    const data = await apiRequest('/api/auth/recover/verify', {
+      method: 'POST',
+      body: JSON.stringify({ username, secret_answer: secretAnswer }),
+      skipAuth: true,
+    });
+    if (data.access_token) {
+      setAuthToken(data.access_token);
+    }
+    return data;
+  },
+
+  updateSettings: async (settings) => {
+    return apiRequest('/api/auth/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    });
   },
 
   logout: () => {

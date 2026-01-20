@@ -6,10 +6,13 @@ from app.schemas.schemas import (
     MessageCreate,
     MessageResponse,
     MessageStatusUpdate,
+    PasswordRecovery,
+    PasswordRecoveryVerify,
     Token,
     UserLogin,
     UserResponse,
     UserSearch,
+    UserSettingsUpdate,
     UserSignup,
 )
 
@@ -21,9 +24,12 @@ __all__ = [
     "MessageCreate",
     "MessageResponse",
     "MessageStatusUpdate",
+    "PasswordRecovery",
+    "PasswordRecoveryVerify",
     "Token",
     "UserLogin",
     "UserResponse",
     "UserSearch",
+    "UserSettingsUpdate",
     "UserSignup",
 ]

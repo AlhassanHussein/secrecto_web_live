@@ -14,10 +14,11 @@ services:
     networks:
       - saytruth-network
     healthcheck:
-      test: ["CMD", "sqlite3", "/data/saytruth.db", "SELECT 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      test: ["CMD", "test", "-f", "/data/saytruth.db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
 
   # 2. Backend Container (FastAPI)
   # Provides REST API endpoints for auth, messages, links, users, friends
@@ -45,14 +46,15 @@ services:
       - "8000:8000"
     depends_on:
       saytruth-db:
-        condition: service_healthy
+        condition: service_started
     networks:
       - saytruth-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 10s
 
   # 3. Frontend Container (React + Vite)
   # User interface for SayTruth application
@@ -65,7 +67,7 @@ services:
     ports:
       - "3000:5173"  # Map host port 3000 to container port 5173 (Vite default)
     volumes:
-      - .:/app
+      - ./frontend:/app
       - /app/node_modules
     environment:
       - NODE_ENV=development

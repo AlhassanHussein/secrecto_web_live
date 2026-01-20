@@ -6,48 +6,59 @@ const translations = {
     EN: {
         eyebrow: 'Signup',
         title: 'Join SayTruth',
-        subtitle: 'Pick a username and a secret phrase to recover your account later.',
+        subtitle: 'Create your account with a secret phrase and answer for recovery.',
         username: 'Username',
-        secret: 'Secret Phrase',
+        name: 'Display Name (optional)',
+        secretPhrase: 'Secret Phrase (hint/question)',
+        secretAnswer: 'Secret Answer',
         terms: 'I agree to the Terms & Conditions',
         signup: 'Create account',
         errorTaken: 'This username is already taken.',
         success: 'Account created. Redirecting...',
-        forgot: 'Forgot secret phrase?',
-        helper: 'Soft blues, touch-friendly, animated inputs.',
+        helper: 'Mobile-first, multi-language, secure.',
+        phrasePlaceholder: 'e.g., "What is your favorite color?"',
+        answerPlaceholder: 'Your answer to the secret phrase',
     },
     AR: {
         eyebrow: 'إنشاء حساب',
         title: 'انضم إلى SayTruth',
-        subtitle: 'اختر اسم مستخدم وعبارة سرية لاستعادة حسابك لاحقًا.',
+        subtitle: 'أنشئ حسابك بعبارة سرية وإجابة للاسترداد.',
         username: 'اسم المستخدم',
-        secret: 'العبارة السرية',
+        name: 'الاسم المعروض (اختياري)',
+        secretPhrase: 'العبارة السرية (تلميح/سؤال)',
+        secretAnswer: 'الإجابة السرية',
         terms: 'أوافق على الشروط والأحكام',
         signup: 'إنشاء حساب',
         errorTaken: 'اسم المستخدم محجوز.',
         success: 'تم إنشاء الحساب. جارٍ التحويل...',
-        forgot: 'نسيت العبارة السرية؟',
-        helper: 'ألوان هادئة، ملائم للمس، مدخلات متحركة.',
+        helper: 'محمول أولاً، متعدد اللغات، آمن.',
+        phrasePlaceholder: 'مثال: "ما هو لونك المفضل؟"',
+        answerPlaceholder: 'إجابتك على العبارة السرية',
     },
     ES: {
         eyebrow: 'Registro',
         title: 'Únete a SayTruth',
-        subtitle: 'Elige un usuario y una frase secreta para recuperar tu cuenta.',
+        subtitle: 'Crea tu cuenta con una frase secreta y respuesta para recuperación.',
         username: 'Usuario',
-        secret: 'Frase secreta',
+        name: 'Nombre para mostrar (opcional)',
+        secretPhrase: 'Frase secreta (pista/pregunta)',
+        secretAnswer: 'Respuesta secreta',
         terms: 'Acepto los Términos y Condiciones',
         signup: 'Crear cuenta',
         errorTaken: 'Ese usuario ya existe.',
         success: 'Cuenta creada. Redirigiendo...',
-        forgot: '¿Olvidaste la frase secreta?',
-        helper: 'Azules suaves, táctil, entradas animadas.',
+        helper: 'Móvil primero, multilingüe, seguro.',
+        phrasePlaceholder: 'ej. "¿Cuál es tu color favorito?"',
+        answerPlaceholder: 'Tu respuesta a la frase secreta',
     },
 };
 
 const SignupPage = ({ onSignupSuccess }) => {
     const [language, setLanguage] = useState('EN');
     const [username, setUsername] = useState('');
-    const [secret, setSecret] = useState('');
+    const [name, setName] = useState('');
+    const [secretPhrase, setSecretPhrase] = useState('');
+    const [secretAnswer, setSecretAnswer] = useState('');
     const [acceptTerms, setAcceptTerms] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -61,8 +72,8 @@ const SignupPage = ({ onSignupSuccess }) => {
         setError('');
         setSuccess('');
 
-        if (!username.trim() || !secret.trim()) {
-            setError('All fields are required');
+        if (!username.trim() || !secretPhrase.trim() || !secretAnswer.trim()) {
+            setError('Username, secret phrase, and secret answer are required');
             return;
         }
         if (!acceptTerms) {
@@ -72,7 +83,7 @@ const SignupPage = ({ onSignupSuccess }) => {
 
         setIsLoading(true);
         try {
-            await authAPI.signup(username, secret);
+            await authAPI.signup(username, name || null, secretPhrase, secretAnswer);
             setSuccess(t.success);
             setTimeout(() => {
                 if (onSignupSuccess) {
@@ -117,7 +128,7 @@ const SignupPage = ({ onSignupSuccess }) => {
                     <div className="form-group">
                         <div className="label-row">
                             <label className="label" htmlFor="username">{t.username}</label>
-                            <span className="hint">live check</span>
+                            <span className="hint">required</span>
                         </div>
                         <input
                             id="username"
@@ -131,16 +142,47 @@ const SignupPage = ({ onSignupSuccess }) => {
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="secret">{t.secret}</label>
-                            <span className="hint">private</span>
+                            <label className="label" htmlFor="name">{t.name}</label>
+                            <span className="hint">optional</span>
                         </div>
                         <input
-                            id="secret"
+                            id="name"
+                            className="input-field"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder={t.name}
+                            dir={isRTL ? 'rtl' : 'ltr'}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <div className="label-row">
+                            <label className="label" htmlFor="secret-phrase">{t.secretPhrase}</label>
+                            <span className="hint">required</span>
+                        </div>
+                        <input
+                            id="secret-phrase"
+                            className="input-field"
+                            type="text"
+                            value={secretPhrase}
+                            onChange={(e) => setSecretPhrase(e.target.value)}
+                            placeholder={t.phrasePlaceholder}
+                            dir={isRTL ? 'rtl' : 'ltr'}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <div className="label-row">
+                            <label className="label" htmlFor="secret-answer">{t.secretAnswer}</label>
+                            <span className="hint">required</span>
+                        </div>
+                        <input
+                            id="secret-answer"
                             className="input-field"
                             type="password"
-                            value={secret}
-                            onChange={(e) => setSecret(e.target.value)}
-                            placeholder={t.secret}
+                            value={secretAnswer}
+                            onChange={(e) => setSecretAnswer(e.target.value)}
+                            placeholder={t.answerPlaceholder}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
