@@ -17,6 +17,10 @@ const LinksTab = ({ isAuthenticated, language = 'EN' }) => {
     const [copiedPrivate, setCopiedPrivate] = useState(false);
     const [showGuestWarning, setShowGuestWarning] = useState(false);
 
+    // Delete confirmation state
+    const [deletingLinkId, setDeletingLinkId] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+
     const t = translations[language] || translations.EN;
     const guestExpirations = ['6h', '12h', '24h'];
     const loggedInExpirations = ['6h', '12h', '24h', '7d', '30d'];
@@ -134,7 +138,28 @@ const LinksTab = ({ isAuthenticated, language = 'EN' }) => {
         const days = Math.floor(hours / 24);
         if (days > 0) return `${days} ${t.links.days}`;
         if (hours > 0) return `${hours} ${t.links.hours}`;
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        if (minutes > 0) return `${minutes} min`;
         return t.links.lessThanHour;
+    };
+
+    const handleDeleteLink = async () => {
+        if (!deletingLinkId) return;
+        
+        try {
+            await linksAPI.deleteLink(deletingLinkId);
+            setLinks(links.filter(link => link.id !== deletingLinkId));
+            setShowDeleteModal(false);
+            setDeletingLinkId(null);
+        } catch (err) {
+            console.error('Failed to delete link:', err);
+            alert(t.errors?.generic || 'Failed to delete link');
+        }
+    };
+
+    const confirmDelete = (linkId) => {
+        setDeletingLinkId(linkId);
+        setShowDeleteModal(true);
     };
 
     if (loading) {
@@ -149,14 +174,42 @@ const LinksTab = ({ isAuthenticated, language = 'EN' }) => {
 
     return (
         <div className="links-tab" style={{ padding: '1rem', maxWidth: '520px', margin: '0 auto', paddingBottom: '6rem' }}>
-            {/* Create link */}
+            {/* Intro Hero Card */}
             <section className="card" style={{ marginBottom: '1rem', padding: '1.5rem' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', textTransform: 'uppercase', fontWeight: 700 }}>{t.links.createLinkTitle}</span>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0' }}>{t.links.generateTitle}</h1>
-                <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem' }}>{t.links.generateSubtitle}</p>
+                <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)', textTransform: 'uppercase', fontWeight: 700 }}>{t.nav.links}</span>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0.5rem 0' }}>{t.links.introTitle}</h1>
+                <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem', marginBottom: '1rem' }}>{t.links.introSubtitle}</p>
+                
+                <p style={{ color: 'var(--gray-700)', fontSize: '0.875rem', lineHeight: '1.6', marginBottom: '1rem' }}>
+                    {t.links.introDescription}
+                </p>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--gray-150)' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '1rem', marginTop: '-2px' }}>•</span>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--gray-700)', lineHeight: '1.5' }}>
+                            {t.links.introBullets?.generate}
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '1rem', marginTop: '-2px' }}>•</span>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--gray-700)', lineHeight: '1.5' }}>
+                            {t.links.introBullets?.public}
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '1rem', marginTop: '-2px' }}>•</span>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--gray-700)', lineHeight: '1.5' }}>
+                            {t.links.introBullets?.private}
+                        </p>
+                    </div>
+                </div>
             </section>
 
+            {/* Create link section */}
             <section className="card" style={{ marginBottom: '1rem', padding: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '0.5rem' }}>{t.links.createLinkTitle}</h2>
+                <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem', marginBottom: '1rem' }}>{t.links.generateSubtitle}</p>
                 <form onSubmit={handleCreate}>
                     <div style={{ marginBottom: '1rem' }}>
                         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 700 }}>{t.links.displayNameLabel}</label>
@@ -387,10 +440,80 @@ const LinksTab = ({ isAuthenticated, language = 'EN' }) => {
                                         </a>
                                     </div>
                                 </div>
+
+                                {/* Delete button */}
+                                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--gray-100)' }}>
+                                    <button
+                                        onClick={() => confirmDelete(link.id)}
+                                        className="action"
+                                        style={{ 
+                                            width: '100%', 
+                                            fontSize: '0.875rem',
+                                            color: 'var(--danger)',
+                                            background: 'transparent',
+                                            border: '1px solid var(--danger)',
+                                        }}
+                                    >
+                                        🗑️ {t.links.deleteLink}
+                                    </button>
+                                </div>
                             </div>
                         );
                     })
                 )
+            )}
+
+            {/* Delete confirmation modal */}
+            {showDeleteModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '1rem'
+                }}>
+                    <div className="card" style={{ 
+                        maxWidth: '400px', 
+                        width: '100%',
+                        padding: '1.5rem'
+                    }}>
+                        <h3 style={{ fontWeight: 800, fontSize: '1.25rem', marginBottom: '0.5rem' }}>
+                            {t.links.confirmDeleteLink}
+                        </h3>
+                        <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                            {t.links.confirmDeleteLinkMessage}
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeletingLinkId(null);
+                                }}
+                                className="action outline"
+                                style={{ flex: 1 }}
+                            >
+                                {t.common.cancel}
+                            </button>
+                            <button
+                                onClick={handleDeleteLink}
+                                className="action primary"
+                                style={{ 
+                                    flex: 1,
+                                    background: 'var(--danger)',
+                                    borderColor: 'var(--danger)'
+                                }}
+                            >
+                                {t.common.delete}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

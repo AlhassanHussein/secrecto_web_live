@@ -265,6 +265,13 @@ export const linksAPI = {
       method: 'DELETE',
     });
   },
+
+  // Delete a link (requires auth)
+  deleteLink: async (linkId) => {
+    return apiRequest(`/api/links/${linkId}/delete`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // ============ Users API ============

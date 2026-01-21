@@ -1,71 +1,6 @@
 import { useState, useEffect } from 'react';
 import { linksAPI } from '../services/api';
-
-const translations = {
-  EN: {
-    eyebrow: 'Your Link',
-    loading: 'Loading messages...',
-    expired: 'This link has expired',
-    error: 'Error loading messages',
-    noMessages: 'No messages yet',
-    inbox: 'Inbox',
-    public: 'Public',
-    deleted: 'Deleted',
-    markPublic: 'Make Public',
-    markPrivate: 'Mark Private',
-    delete: 'Delete',
-    restore: 'Restore',
-    expiresIn: 'Link expires in',
-    days: 'days',
-    hours: 'hours',
-    minutes: 'minutes',
-    seconds: 'seconds',
-    just_now: 'just now',
-    ago: 'ago',
-  },
-  AR: {
-    eyebrow: 'رابطك',
-    loading: 'جاري تحميل الرسائل...',
-    expired: 'انتهت صلاحية هذا الرابط',
-    error: 'حدث خطأ في تحميل الرسائل',
-    noMessages: 'لا توجد رسائل حتى الآن',
-    inbox: 'الرسائل',
-    public: 'عام',
-    deleted: 'محذوفة',
-    markPublic: 'اجعله عام',
-    markPrivate: 'وضع علامة خاصة',
-    delete: 'حذف',
-    restore: 'استعادة',
-    expiresIn: 'ينتهي الرابط في',
-    days: 'أيام',
-    hours: 'ساعات',
-    minutes: 'دقائق',
-    seconds: 'ثوان',
-    just_now: 'للتو',
-    ago: 'منذ',
-  },
-  ES: {
-    eyebrow: 'Tu Enlace',
-    loading: 'Cargando mensajes...',
-    expired: 'Este enlace ha expirado',
-    error: 'Error al cargar los mensajes',
-    noMessages: 'Sin mensajes aún',
-    inbox: 'Bandeja de entrada',
-    public: 'Público',
-    deleted: 'Eliminado',
-    markPublic: 'Hacer Público',
-    markPrivate: 'Marcar Privado',
-    delete: 'Eliminar',
-    restore: 'Restaurar',
-    expiresIn: 'El enlace expira en',
-    days: 'días',
-    hours: 'horas',
-    minutes: 'minutos',
-    seconds: 'segundos',
-    just_now: 'justo ahora',
-    ago: 'hace',
-  },
-};
+import { translations } from '../i18n/translations';
 
 const formatTimeRemaining = (expiresAt, t) => {
   const now = new Date();
@@ -144,7 +79,7 @@ const PrivateLinkPage = ({ privateId, language = 'EN' }) => {
   const [countdown, setCountdown] = useState(null);
   const [activeTab, setActiveTab] = useState('inbox');
 
-  const t = translations[language];
+  const t = translations[language]?.privateLinkPage || translations.EN.privateLinkPage;
   const isRTL = language === 'AR';
 
   useEffect(() => {
@@ -220,12 +155,18 @@ const PrivateLinkPage = ({ privateId, language = 'EN' }) => {
 
   return (
     <div className={`private-link-page ${isRTL ? 'rtl' : ''}`}>
+      {/* Intro Hero Card */}
       <section className="hero card">
         <div className="hero-copy">
-          <span className="eyebrow">{t.eyebrow}</span>
-          <h1 className="hero-title">Your Anonymous Messages</h1>
+          <h1 className="hero-title">{t.introTitle}</h1>
+          <p style={{ color: 'var(--gray-600)', fontSize: '0.875rem', marginBottom: '1rem' }}>{t.introSubtitle}</p>
+          
+          <p style={{ color: 'var(--gray-700)', fontSize: '0.875rem', lineHeight: '1.6' }}>
+            {t.introDescription}
+          </p>
+          
           {countdown && (
-            <p className="countdown">
+            <p className="countdown" style={{ marginTop: '1rem' }}>
               {t.expiresIn}: <strong>{countdown}</strong>
             </p>
           )}

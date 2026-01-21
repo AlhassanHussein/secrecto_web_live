@@ -192,10 +192,9 @@ async def get_link_messages(
     if link.user_id and current_user and link.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    # Fetch messages (exclude deleted by default)
+    # Fetch all messages for this link
     messages = db.query(LinkMessage).filter(
-        LinkMessage.link_id == link.id,
-        LinkMessage.status != MessageStatus.deleted
+        LinkMessage.link_id == link.id
     ).order_by(LinkMessage.created_at.desc()).all()
     
     # Decrypt messages
@@ -313,8 +312,8 @@ async def delete_link_message(
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
     
-    # Soft delete
-    message.status = MessageStatus.deleted
+    # Delete message from database
+    db.delete(message)
     db.commit()
     
     return {"message": "Message deleted"}
@@ -339,3 +338,32 @@ async def get_my_links(
     ).order_by(Link.created_at.desc()).all()
     
     return links
+
+
+@router.delete("/{link_id}/delete", status_code=status.HTTP_200_OK)
+async def delete_link(
+    link_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Delete a link and all its associated messages.
+    Only the link owner can delete.
+    """
+    # Find link
+    link = db.query(Link).filter(
+        Link.id == link_id,
+        Link.user_id == current_user.id
+    ).first()
+    
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found or unauthorized")
+    
+    # Delete all messages associated with this link
+    db.query(LinkMessage).filter(LinkMessage.link_id == link.id).delete()
+    
+    # Delete the link
+    db.delete(link)
+    db.commit()
+    
+    return {"message": "Link and all messages deleted successfully"}

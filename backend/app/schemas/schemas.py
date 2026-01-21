@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional, List
+import re
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ============ Auth Schemas ============
@@ -11,6 +12,18 @@ class UserSignup(BaseModel):
     name: Optional[str] = Field(None, max_length=100)  # Optional display name
     secret_phrase: str = Field(..., min_length=6)  # The hint/question
     secret_answer: str = Field(..., min_length=3)  # The answer to verify
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v):
+        """Validate username: Instagram-style (letters, numbers, underscores only, no spaces)"""
+        if not v or not v.strip():
+            raise ValueError('Username cannot be empty')
+        if ' ' in v:
+            raise ValueError('Username cannot contain spaces')
+        if not re.match(r'^[a-zA-Z0-9_]+$', v):
+            raise ValueError('Username can only contain letters, numbers, and underscores')
+        return v.strip()
 
 
 class UserLogin(BaseModel):

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { authAPI } from './services/api';
-import { getInitialLanguage, saveLanguage } from './i18n/translations';
+import { getInitialLanguage, saveLanguage, translations } from './i18n/translations';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import LinksTab from './components/LinksTab';
@@ -84,6 +84,7 @@ function App() {
     
     // Special case: guest profile - show a guest-friendly profile page
     if (userId === 'guest') {
+      const t = translations[language] || translations.EN;
       return (
         <div style={{ padding: '1rem', maxWidth: '520px', margin: '0 auto' }}>
           <section className="empty-state-card">
@@ -93,22 +94,22 @@ function App() {
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </div>
-            <h2 className="empty-state-title">You're browsing as a guest</h2>
+            <h2 className="empty-state-title">{t.profile.guestBrowsingTitle}</h2>
             <p className="empty-state-subtitle">
-              Create an account to build your profile, share links, and connect with others.
+              {t.profile.guestBrowsingSubtitle}
             </p>
             <div className="empty-state-actions">
               <button
                 className="btn btn-primary"
                 onClick={() => navigate('/login')}
               >
-                Login
+                {t.buttons.login}
               </button>
               <button
                 className="btn btn-secondary"
                 onClick={() => navigate('/signup')}
               >
-                Sign up
+                {t.buttons.signup}
               </button>
             </div>
           </section>

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import re
 
 from app.core.dependencies import get_current_user, get_db
 from app.core.security import create_access_token, get_password_hash, verify_password
@@ -19,6 +20,26 @@ router = APIRouter()
 
 @router.post("/signup", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def signup(user_data: UserSignup, db: Session = Depends(get_db)) -> dict:
+    """
+    Create a new user account with backend validation.
+    
+    Validation:
+    - Username: Instagram-style (letters, numbers, underscores only, no spaces)
+    - Username must be 3-50 characters
+    - Secret phrase must be 6+ characters
+    - Secret answer must be 3+ characters
+    - Username must be unique
+    
+    Returns: Access token for immediate login after signup
+    """
+    
+    # Re-validate username on backend (additional safety check)
+    if not re.match(r'^[a-zA-Z0-9_]+$', user_data.username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username can only contain letters, numbers, and underscores"
+        )
+    
     # Check if username already exists
     existing_user = db.query(User).filter(User.username == user_data.username).first()
     if existing_user:
@@ -27,7 +48,9 @@ async def signup(user_data: UserSignup, db: Session = Depends(get_db)) -> dict:
             detail="Username already registered"
         )
     
-    # Create new user with hashed answer (phrase is stored as plain hint)
+    # Create new user with hashed secret answer
+    # Secret phrase is stored as plain hint for password recovery
+    # Secret answer is hashed for verification during login/recovery
     hashed_answer = get_password_hash(user_data.secret_answer)
     new_user = User(
         username=user_data.username,
