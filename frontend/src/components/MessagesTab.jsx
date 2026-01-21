@@ -1,72 +1,15 @@
 import { useMemo, useState, useEffect } from 'react';
 import './MessagesTab.css';
 import { messagesAPI } from '../services/api';
+import { translations } from '../i18n/translations';
 
-const translations = {
-    EN: {
-        eyebrow: 'Inbox',
-        title: 'Anonymous messages',
-        subtitle: 'Manage messages between inbox, public, and deleted.',
-        tabs: { inbox: 'Inbox', public: 'Public', deleted: 'Deleted' },
-        helperPublic: 'Public messages visible on your public profile.',
-        helperDeleted: 'Soft-deleted messages (archived).',
-        emptyTitle: 'No messages yet',
-        emptyText: 'New anonymous notes will appear here. Try switching tabs.',
-        anonymous: 'Anonymous',
-        timestampLabel: 'Now',
-        delete: 'Delete',
-        makePublic: 'Make Public',
-        makePrivate: 'Make Private',
-        loading: 'Loading...',
-        error: 'Failed to update message',
-        success: 'Message updated',
-    },
-    AR: {
-        eyebrow: 'الوارد',
-        title: 'رسائل مجهولة',
-        subtitle: 'أدر الرسائل بين الوارد والعام والمحذوفة.',
-        tabs: { inbox: 'الوارد', public: 'عام', deleted: 'محذوفة' },
-        helperPublic: 'رسائل عامة مرئية في ملفك العام.',
-        helperDeleted: 'رسائل محذوفة بشكل مؤقت (مؤرشفة).',
-        emptyTitle: 'لا توجد رسائل',
-        emptyText: 'ستظهر الملاحظات المجهولة هنا. جرّب تغيير التبويب.',
-        anonymous: 'مجهول',
-        timestampLabel: 'الآن',
-        delete: 'حذف',
-        makePublic: 'اجعله عام',
-        makePrivate: 'اجعله خاص',
-        loading: 'جاري التحميل...',
-        error: 'فشل تحديث الرسالة',
-        success: 'تم تحديث الرسالة',
-    },
-    ES: {
-        eyebrow: 'Bandeja',
-        title: 'Mensajes anónimos',
-        subtitle: 'Gestiona mensajes entre bandeja, público y eliminado.',
-        tabs: { inbox: 'Bandeja', public: 'Público', deleted: 'Eliminado' },
-        helperPublic: 'Mensajes públicos visibles en tu perfil.',
-        helperDeleted: 'Mensajes eliminados suavemente (archivados).',
-        emptyTitle: 'Aún no hay mensajes',
-        emptyText: 'Las notas anónimas aparecerán aquí. Prueba otro tab.',
-        anonymous: 'Anónimo',
-        timestampLabel: 'Ahora',
-        delete: 'Eliminar',
-        makePublic: 'Hacer público',
-        makePrivate: 'Hacer privado',
-        loading: 'Cargando...',
-        error: 'Falló la actualización',
-        success: 'Mensaje actualizado',
-    },
-};
-
-const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
-    const [language, setLanguage] = useState('EN');
+const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick, language = 'EN' }) => {
     const [activeTab, setActiveTab] = useState('inbox');
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [operatingIds, setOperatingIds] = useState(new Set());
 
-    const t = translations[language];
+    const t = translations[language] || translations.EN;
     const isRTL = language === 'AR';
 
     // Load messages on mount - ONLY if authenticated
@@ -176,22 +119,22 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
                             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                         </svg>
                     </div>
-                    <h2 className="empty-state-title">Messages are locked</h2>
+                    <h2 className="empty-state-title">{t.messages.lockedTitle}</h2>
                     <p className="empty-state-subtitle">
-                        Log in to access your inbox and manage private messages. Create an account to receive permanent messages and connect with others.
+                        {t.messages.lockedSubtitle}
                     </p>
                     <div className="empty-state-actions">
                         <button
                             className="btn btn-primary"
                             onClick={onLoginClick}
                         >
-                            Log in
+                            {t.buttons.login}
                         </button>
                         <button
                             className="btn btn-secondary"
                             onClick={onSignupClick}
                         >
-                            Sign up
+                            {t.buttons.signup}
                         </button>
                     </div>
                 </section>
@@ -204,9 +147,9 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
             <section className="messages-hero card">
                 <div className="hero-row">
                     <div className="hero-copy">
-                        <span className="eyebrow">{t.eyebrow}</span>
-                        <h1 className="hero-title">{t.title}</h1>
-                        <p className="hero-subtitle">{t.subtitle}</p>
+                        <span className="eyebrow">{t.nav.messages}</span>
+                        <h1 className="hero-title">{t.messages.title}</h1>
+                        <p className="hero-subtitle">{t.messages.subtitle}</p>
                     </div>
                 </div>
 
@@ -221,7 +164,7 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
                         className={`page-tab ${activeTab === tab ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab)}
                     >
-                        <span>{t.tabs[tab]}</span>
+                        <span>{t.messages.tabs?.[tab] || tab}</span>
                         <span className="count-badge">{counts[tab] || 0}</span>
                     </button>
                 ))}
@@ -230,29 +173,29 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
             <section className="messages-list card">
                 <div className="list-header">
                     <div>
-                        <p className="eyebrow subtle">{t.tabs[activeTab]}</p>
-                        <h2 className="list-title">{filteredMessages.length} {filteredMessages.length === 1 ? 'message' : 'messages'}</h2>
+                        <p className="eyebrow subtle">{t.messages.tabs?.[activeTab] || activeTab}</p>
+                        <h2 className="list-title">{filteredMessages.length} {filteredMessages.length === 1 ? t.messages.messageSingular : t.messages.messagePlural}</h2>
                     </div>
                 </div>
 
                 {loading ? (
                     <div className="empty-state">
                         <div className="empty-icon">⏳</div>
-                        <h3 className="empty-title">{t.loading}</h3>
+                        <h3 className="empty-title">{t.common.loading}</h3>
                     </div>
                 ) : filteredMessages.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-icon">📭</div>
-                        <h3 className="empty-title">{t.emptyTitle}</h3>
-                        <p className="empty-description">{t.emptyText}</p>
+                        <h3 className="empty-title">{t.messages.noMessages}</h3>
+                        <p className="empty-description">{t.messages.noMessagesText}</p>
                     </div>
                 ) : (
                     <div className="message-stack">
                         {filteredMessages.map((msg) => (
                             <article key={msg.id} className="message-card animate-slideUp">
                                 <div className="message-top">
-                                    <div className="chip primary">{t.anonymous}</div>
-                                    <span className="timestamp">{msg.created_at ? new Date(msg.created_at).toLocaleDateString() : t.timestampLabel}</span>
+                                    <div className="chip primary">{t.messages.anonymous}</div>
+                                    <span className="timestamp">{msg.created_at ? new Date(msg.created_at).toLocaleDateString() : t.common.loading}</span>
                                 </div>
 
                                 <p className="message-body">{msg.content}</p>
@@ -270,7 +213,7 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
                                             <path d="M14 11v6" />
                                             <path d="M9 6l1-3h4l1 3" />
                                         </svg>
-                                        {t.delete}
+                                        {t.common.delete}
                                     </button>
 
                                     {activeTab === 'inbox' && (
@@ -285,7 +228,7 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
                                                 <path d="M12 7v8" />
                                                 <path d="M9 12h6" />
                                             </svg>
-                                            {t.makePublic}
+                                            {t.buttons.publish}
                                         </button>
                                     )}
 
@@ -299,7 +242,7 @@ const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
                                                 <rect x="3" y="11" width="18" height="11" rx="2" />
                                                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                                             </svg>
-                                            {t.makePrivate}
+                                            {t.buttons.hide}
                                         </button>
                                     )}
                                 </div>

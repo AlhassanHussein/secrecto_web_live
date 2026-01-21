@@ -1,78 +1,20 @@
 import { useState } from 'react';
 import { userAPI } from '../services/api';
+import { translations } from '../i18n/translations';
 import './SearchTab.css';
 
-const translations = {
-    EN: {
-        eyebrow: 'Search',
-        searchPlaceholder: 'Search by username or name...',
-        startTitle: 'Start Searching',
-        startText: 'Type a username or name to see matching users.',
-        searching: 'Searching...',
-        noResultsTitle: 'No matches found',
-        noResultsText: 'Try a different name or check spelling.',
-        resultsTitle: 'Live matches',
-        follow: 'Follow',
-        following: 'Following',
-        sendAnonymous: 'Send Anonymous Message',
-        sent: 'Message Sent',
-        authNeeded: 'Login required to follow.',
-        emptyHint: 'Safe, private, and touch-friendly.',
-        chipRecent: 'Recent',
-        chipPopular: 'Popular now',
-    },
-    AR: {
-        eyebrow: 'بحث',
-        searchPlaceholder: 'ابحث بالاسم أو اسم المستخدم...',
-        startTitle: 'ابدأ البحث',
-        startText: 'اكتب اسم المستخدم أو الاسم لرؤية النتائج.',
-        searching: 'جارٍ البحث...',
-        noResultsTitle: 'لا توجد نتائج',
-        noResultsText: 'جرّب اسمًا مختلفًا أو تحقق من الإملاء.',
-        resultsTitle: 'النتائج المباشرة',
-        follow: 'متابعة',
-        following: 'يتابع',
-        sendAnonymous: 'إرسال رسالة مجهولة',
-        sent: 'تم الإرسال',
-        authNeeded: 'تسجيل الدخول مطلوب للمتابعة.',
-        emptyHint: 'آمن، خاص، وملائم للمس.',
-        chipRecent: 'الأحدث',
-        chipPopular: 'شائع الآن',
-    },
-    ES: {
-        eyebrow: 'Buscar',
-        subtitle: 'Busca por nombre o usuario, agrega amigos o envía un mensaje anónimo único.',
-        searchPlaceholder: 'Busca por usuario o nombre...',
-        startTitle: 'Comienza a buscar',
-        startText: 'Escribe un usuario o nombre para ver coincidencias.',
-        searching: 'Buscando...',
-        noResultsTitle: 'Sin resultados',
-        noResultsText: 'Prueba con otro nombre o revisa la ortografía.',
-        resultsTitle: 'Coincidencias en vivo',
-        follow: 'Seguir',
-        following: 'Siguiendo',
-        sendAnonymous: 'Enviar mensaje anónimo',
-        sent: 'Mensaje enviado',
-        authNeeded: 'Debes iniciar sesión para seguir.',
-        sessionRule: 'Límite de un mensaje anónimo por sesión.',
-        emptyHint: 'Seguro, privado y táctil.',
-        chipRecent: 'Reciente',
-        chipPopular: 'Popular ahora',
-    },
-};
-
-const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
+const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null, language = 'EN' }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [sentMessages, setSentMessages] = useState(new Set());
     const [followingSet, setFollowingSet] = useState(new Set());
-    const [language, setLanguage] = useState('EN');
     const [error, setError] = useState(null);
     const [friendMessage, setFriendMessage] = useState(null);
-
-    const currentUsername = currentUser?.username || 'Guest';
+    
+    const t = translations[language] || translations.EN;
+    const currentUsername = currentUser?.username || t.auth.login;
 
     const handleSearchSubmit = async (e) => {
         e.preventDefault();
@@ -105,7 +47,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
 
             if (exact.length === 0) {
                 setSearchResults([]);
-                setError('User not found');
+                setError(t.search.userNotFound);
             } else {
                 // For each user, check their follow status
                 const enrichedResults = await Promise.all(
@@ -132,7 +74,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
             }
         } catch (err) {
             setSearchResults([]);
-            setError('Search failed');
+            setError(t.search.searchFailed);
         } finally {
             setIsSearching(false);
         }
@@ -168,7 +110,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
 
     const handleAddFriend = async (user) => {
         if (!isAuthenticated) {
-            setFriendMessage('Login required to follow.');
+            setFriendMessage(t.search.loginRequired);
             return;
         }
 
@@ -178,12 +120,12 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
             console.log('Follow result:', result);
             setFollowingSet((prev) => new Set([...prev, user.id]));
             setSearchResults((prev) => prev.map((u) => (u.id === user.id ? { ...u, isFriend: true } : u)));
-            setFriendMessage('Now following user!');
+            setFriendMessage(t.search.nowFollowing);
             setTimeout(() => setFriendMessage(null), 3000);
         } catch (err) {
             console.error('Error following user:', err);
-            const errorMsg = err.message || 'Could not follow user';
-            setFriendMessage(errorMsg.includes('Already following') ? 'Already following this user' : errorMsg);
+            const errorMsg = err.message || t.search.couldNotFollow;
+            setFriendMessage(errorMsg.includes('Already following') ? t.search.alreadyFollowing : errorMsg);
             setTimeout(() => setFriendMessage(null), 3000);
         }
     };
@@ -201,11 +143,11 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                 return newSet;
             });
             setSearchResults((prev) => prev.map((u) => (u.id === user.id ? { ...u, isFriend: false } : u)));
-            setFriendMessage('Unfollowed user');
+            setFriendMessage(t.search.unfollowed);
             setTimeout(() => setFriendMessage(null), 3000);
         } catch (err) {
             console.error('Error unfollowing user:', err);
-            setFriendMessage('Could not unfollow user');
+            setFriendMessage(t.search.couldNotUnfollow);
             setTimeout(() => setFriendMessage(null), 3000);
         }
     };
@@ -218,7 +160,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
             .toUpperCase()
             .slice(0, 2);
 
-    const t = translations[language];
+   
     const isRTL = language === 'AR';
     const resultCount = searchResults.length;
 
@@ -245,10 +187,10 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                         <input
                             type="text"
                             className="search-input"
-                            placeholder={t.searchPlaceholder}
+                            placeholder={t.search.placeholder}
                             value={searchQuery}
                             onChange={(e) => handleSearch(e.target.value)}
-                            aria-label={t.searchPlaceholder}
+                            aria-label={t.search.placeholder}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                         {searchQuery && (
@@ -260,7 +202,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                             </button>
                         )}
                         <button className="submit-btn" type="submit" disabled={isSearching}>
-                            {isSearching ? t.searching : 'Search'}
+                            {isSearching ? t.common.loading : t.search.search}
                         </button>
                     </form>
                 </div>
@@ -273,8 +215,8 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
             <section className="results-surface card">
                 <div className="results-top">
                     <div>
-                        <p className="eyebrow subtle">{t.resultsTitle}</p>
-                        <h2 className="results-title">{searchQuery ? `“${searchQuery}”` : t.startTitle}</h2>
+                        <p className="eyebrow subtle">{t.search.eyebrow}</p>
+                        <h2 className="results-title">{searchQuery ? `"${searchQuery}"` : t.search.startText}</h2>
                     </div>
                     <div className="results-count-chip">{resultCount}</div>
                 </div>
@@ -287,25 +229,25 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                     {!hasSearched ? (
                         <div className="empty-state">
                             <div className="empty-icon">🔍</div>
-                            <h3 className="empty-title">{t.startTitle}</h3>
-                            <p className="empty-description">{t.startText}</p>
+                            <h3 className="empty-title">{t.search.startText}</h3>
+                            <p className="empty-description">{t.search.startDesc}</p>
                         </div>
                     ) : isSearching ? (
                         <div className="loading-state">
                             <div className="spinner-large"></div>
-                            <p>{t.searching}</p>
+                            <p>{t.common.loading}</p>
                         </div>
                     ) : error ? (
                         <div className="empty-state">
                             <div className="empty-icon">⚠️</div>
-                            <h3 className="empty-title">{t.noResultsTitle}</h3>
+                            <h3 className="empty-title">{t.search.noResults}</h3>
                             <p className="empty-description">{error}</p>
                         </div>
                     ) : resultCount === 0 ? (
                         <div className="empty-state">
                             <div className="empty-icon">😕</div>
-                            <h3 className="empty-title">{t.noResultsTitle}</h3>
-                            <p className="empty-description">{t.noResultsText}</p>
+                            <h3 className="empty-title">{t.search.noResults}</h3>
+                            <p className="empty-description">{t.search.noResultsDesc}</p>
                         </div>
                     ) : (
                         <div className="results-list">
@@ -342,12 +284,12 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                                                             <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
                                                             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                                                         </svg>
-                                                        {t.following}
+                                                        {t.buttons.following}
                                                     </span>
                                                 )}
                                             </div>
                                             <p className="user-username">@{user.username}</p>
-                                            <p className="user-hint">{t.emptyHint}</p>
+                                            <p className="user-hint">{t.messages.anonymousTitle}</p>
                                         </div>
                                     </div>
 

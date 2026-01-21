@@ -1,84 +1,31 @@
 import { useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
+import { translations } from '../i18n/translations';
 import './AuthPages.css';
 
-const translations = {
-    EN: {
-        eyebrow: 'Settings',
-        title: 'Account Settings',
-        subtitle: 'Manage your preferences and security.',
-        languageLabel: 'App Language',
-        secretLabel: 'Change Secret Phrase & Answer',
-        secretPhraseLabel: 'New Secret Phrase',
-        secretAnswerLabel: 'New Secret Answer',
-        updateBtn: 'Update Settings',
-        logoutBtn: 'Logout',
-        success: 'Settings updated successfully!',
-        error: 'Failed to update settings',
-        bothRequired: 'Both secret phrase and answer are required',
-    },
-    AR: {
-        eyebrow: 'الإعدادات',
-        title: 'إعدادات الحساب',
-        subtitle: 'إدارة تفضيلاتك وأمانك.',
-        languageLabel: 'لغة التطبيق',
-        secretLabel: 'تغيير العبارة السرية والإجابة',
-        secretPhraseLabel: 'عبارة سرية جديدة',
-        secretAnswerLabel: 'إجابة سرية جديدة',
-        updateBtn: 'تحديث الإعدادات',
-        logoutBtn: 'تسجيل الخروج',
-        success: 'تم تحديث الإعدادات بنجاح!',
-        error: 'فشل تحديث الإعدادات',
-        bothRequired: 'كل من العبارة السرية والإجابة مطلوبان',
-    },
-    ES: {
-        eyebrow: 'Configuración',
-        title: 'Configuración de cuenta',
-        subtitle: 'Gestiona tus preferencias y seguridad.',
-        languageLabel: 'Idioma de la aplicación',
-        secretLabel: 'Cambiar frase secreta y respuesta',
-        secretPhraseLabel: 'Nueva frase secreta',
-        secretAnswerLabel: 'Nueva respuesta secreta',
-        updateBtn: 'Actualizar configuración',
-        logoutBtn: 'Cerrar sesión',
-        success: '¡Configuración actualizada!',
-        error: 'Error al actualizar configuración',
-        bothRequired: 'Se requieren tanto la frase como la respuesta',
-    },
-};
-
-const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
-    const [language, setLanguage] = useState(currentUser?.language || 'EN');
+const SettingsPage = ({ currentUser, onLogout, onLanguageChange, language = 'EN' }) => {
     const [secretPhrase, setSecretPhrase] = useState('');
     const [secretAnswer, setSecretAnswer] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const t = translations[language];
+    const t = translations[language] || translations.EN;
     const isRTL = language === 'AR';
 
-    useEffect(() => {
-        if (currentUser?.language) {
-            setLanguage(currentUser.language);
-        }
-    }, [currentUser]);
-
     const handleLanguageChange = async (newLang) => {
-        setLanguage(newLang);
         setError('');
         setSuccess('');
         setIsLoading(true);
 
         try {
             await authAPI.updateSettings({ language: newLang });
-            setSuccess(translations[newLang].success);
+            setSuccess(translations[newLang].common.loading);
             if (onLanguageChange) {
                 onLanguageChange(newLang);
             }
         } catch (err) {
-            setError(err.message || translations[newLang].error);
-            setLanguage(currentUser?.language || 'EN'); // Revert on error
+            setError(err.message || translations[newLang].errors.generic);
         } finally {
             setIsLoading(false);
         }
@@ -95,7 +42,7 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
         }
 
         if ((secretPhrase.trim() && !secretAnswer.trim()) || (!secretPhrase.trim() && secretAnswer.trim())) {
-            setError(t.bothRequired);
+            setError(t.errors.generic);
             return;
         }
 
@@ -105,11 +52,11 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
                 secret_phrase: secretPhrase,
                 secret_answer: secretAnswer,
             });
-            setSuccess(t.success);
+            setSuccess(t.common.save);
             setSecretPhrase('');
             setSecretAnswer('');
         } catch (err) {
-            setError(err.message || t.error);
+            setError(err.message || t.errors.generic);
         } finally {
             setIsLoading(false);
         }
@@ -126,17 +73,17 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
             <section className="auth-card card">
                 <div className="auth-hero">
                     <div className="auth-copy">
-                        <span className="eyebrow">{t.eyebrow}</span>
-                        <h1 className="auth-title">{t.title}</h1>
-                        <p className="auth-subtitle">{t.subtitle}</p>
+                        <span className="eyebrow">{t.nav.settings}</span>
+                        <h1 className="auth-title">{t.settings.title}</h1>
+                        <p className="auth-subtitle">{t.settings.subtitle}</p>
                     </div>
                 </div>
 
                 {/* Language Selection */}
                 <div className="form-group">
-                    <label className="label">{t.languageLabel}</label>
+                    <label className="label">{t.settings.language}</label>
                     <div className="language-toggle" style={{ marginTop: '8px' }}>
-                        {Object.keys(translations).map((lang) => (
+                        {['EN', 'AR', 'ES'].map((lang) => (
                             <button
                                 key={lang}
                                 className={`lang-pill ${language === lang ? 'active' : ''}`}
@@ -153,7 +100,7 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
                 <form className="auth-form" onSubmit={handleSecretUpdate} style={{ marginTop: '24px' }}>
                     <div className="form-group">
                         <label className="label" htmlFor="secret-phrase">
-                            {t.secretPhraseLabel}
+                            {t.auth.secretPhrase}
                         </label>
                         <input
                             id="secret-phrase"
@@ -161,14 +108,14 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
                             type="text"
                             value={secretPhrase}
                             onChange={(e) => setSecretPhrase(e.target.value)}
-                            placeholder={t.secretPhraseLabel}
+                            placeholder={t.auth.secretPhrase}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
 
                     <div className="form-group">
                         <label className="label" htmlFor="secret-answer">
-                            {t.secretAnswerLabel}
+                            {t.auth.secretAnswer}
                         </label>
                         <input
                             id="secret-answer"
@@ -176,7 +123,7 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
                             type="password"
                             value={secretAnswer}
                             onChange={(e) => setSecretAnswer(e.target.value)}
-                            placeholder={t.secretAnswerLabel}
+                            placeholder={t.auth.secretAnswer}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
@@ -189,7 +136,7 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
                         className="primary-btn"
                         disabled={isLoading || (!secretPhrase.trim() && !secretAnswer.trim())}
                     >
-                        {isLoading ? 'Updating...' : t.updateBtn}
+                        {isLoading ? t.common.loading : t.common.save}
                     </button>
                 </form>
 
@@ -199,7 +146,7 @@ const SettingsPage = ({ currentUser, onLogout, onLanguageChange }) => {
                     onClick={handleLogout}
                     style={{ marginTop: '16px', backgroundColor: '#ff4444' }}
                 >
-                    {t.logoutBtn}
+                    {t.buttons.logout}
                 </button>
             </section>
         </div>

@@ -1,78 +1,18 @@
 import { useEffect, useState } from 'react';
 import { userAPI, messagesAPI } from '../services/api';
+import { translations } from '../i18n/translations';
 import './ProfilePage.css'; // Reuse profile styles
 
-const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLoginClick }) => {
+const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLoginClick, language = 'EN' }) => {
     const [profile, setProfile] = useState(null);
     const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [language, setLanguage] = useState('EN');
     const [messageContent, setMessageContent] = useState('');
     const [messageStatus, setMessageStatus] = useState(null);
     const [copied, setCopied] = useState(false);
 
-    const translations = {
-        EN: {
-            back: '← Back',
-            sendAnonymous: 'Send Anonymous Message',
-            sendPlaceholder: 'Write an anonymous note...',
-            sendCta: 'Send message',
-            sent: 'Message sent',
-            emptyError: 'Message cannot be empty',
-            follow: 'Follow',
-            unfollow: 'Unfollow',
-            following: 'Following',
-            loginToFollow: 'Login to follow',
-            publicMessages: 'Public Messages',
-            noMessages: 'No public messages yet',
-            username: 'Username',
-            name: 'Name',
-            noName: 'No name provided',
-            error: 'Unable to load profile',
-            retry: 'Retry',
-        },
-        AR: {
-            back: '← رجوع',
-            sendAnonymous: 'إرسال رسالة مجهولة',
-            sendPlaceholder: 'اكتب رسالة مجهولة...',
-            sendCta: 'إرسال الرسالة',
-            sent: 'تم إرسال الرسالة',
-            emptyError: 'لا يمكن أن تكون الرسالة فارغة',
-            follow: 'متابعة',
-            unfollow: 'إلغاء المتابعة',
-            following: 'يتابع',
-            loginToFollow: 'سجل الدخول للمتابعة',
-            publicMessages: 'الرسائل العامة',
-            noMessages: 'لا توجد رسائل عامة حتى الآن',
-            username: 'اسم المستخدم',
-            name: 'الاسم',
-            noName: 'لم يتم توفير اسم',
-            error: 'تعذر تحميل الملف الشخصي',
-            retry: 'إعادة محاولة',
-        },
-        ES: {
-            back: '← Atrás',
-            sendAnonymous: 'Enviar mensaje anónimo',
-            sendPlaceholder: 'Escribe un mensaje anónimo...',
-            sendCta: 'Enviar mensaje',
-            sent: 'Mensaje enviado',
-            emptyError: 'El mensaje no puede estar vacío',
-            follow: 'Seguir',
-            unfollow: 'Dejar de seguir',
-            following: 'Siguiendo',
-            loginToFollow: 'Inicia sesión para seguir',
-            publicMessages: 'Mensajes públicos',
-            noMessages: 'Sin mensajes públicos aún',
-            username: 'Usuario',
-            name: 'Nombre',
-            noName: 'Sin nombre proporcionado',
-            error: 'No se pudo cargar el perfil',
-            retry: 'Reintentar',
-        },
-    };
-
-    const t = translations[language];
+    const t = translations[language] || translations.EN;
     const isRTL = language === 'AR';
     const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
 
@@ -150,16 +90,16 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
     const handleSendMessage = async () => {
         const trimmed = messageContent.trim();
         if (!trimmed) {
-            setMessageStatus({ type: 'error', text: t.emptyError });
+            setMessageStatus({ type: 'error', text: t.errors.generic });
             return;
         }
 
         try {
             await messagesAPI.sendMessage(profile.username, trimmed);
-            setMessageStatus({ type: 'success', text: t.sent });
+            setMessageStatus({ type: 'success', text: t.messages.sent });
             setMessageContent('');
         } catch (err) {
-            setMessageStatus({ type: 'error', text: t.error });
+            setMessageStatus({ type: 'error', text: t.errors.generic });
             console.error('Failed to send message:', err);
         }
     };
@@ -167,7 +107,7 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
     if (loading) {
         return (
             <div className={`user-profile-page ${isRTL ? 'rtl' : ''}`}>
-                <div className="loading">Loading...</div>
+                <div className="loading">{t.common.loading}</div>
             </div>
         );
     }
@@ -177,8 +117,8 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
             <div className={`user-profile-page ${isRTL ? 'rtl' : ''}`}>
                 <div className="error-state card">
                     <p className="error-icon">⚠️</p>
-                    <p className="error-title">{t.error}</p>
-                    <button onClick={loadProfile} className="action primary">{t.retry}</button>
+                    <p className="error-title">{t.errors.generic}</p>
+                    <button onClick={loadProfile} className="action primary">{t.common.retry}</button>
                 </div>
 
                 <div className="hero-controls">
@@ -222,7 +162,7 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
                         {profile.name ? (
                             <p className="hero-subtitle">{profile.name}</p>
                         ) : (
-                            <p className="hero-subtitle subtle">{t.noName}</p>
+                            <p className="hero-subtitle subtle">{t.common.loading}</p>
                         )}
                     </div>
                     <div className="user-avatar">
@@ -263,14 +203,14 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
                 <div className="message-composer card">
                     <div className="composer-header">
                         <div>
-                            <p className="eyebrow subtle">{t.sendAnonymous}</p>
+                            <p className="eyebrow subtle">{t.messages.anonymousTitle}</p>
                             <h3 className="composer-title">{profile.username}</h3>
                         </div>
                         <span className="count-badge">✉️</span>
                     </div>
                     <textarea
                         className="composer-input"
-                        placeholder={t.sendPlaceholder}
+                        placeholder={t.messages.send}
                         value={messageContent}
                         onChange={(e) => {
                             setMessageContent(e.target.value);
@@ -289,18 +229,18 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
                             onClick={handleSendMessage}
                             disabled={!messageContent.trim()}
                         >
-                            {t.sendCta}
+                            {t.messages.send}
                         </button>
                         {isAuthenticated ? (
                             <button
                                 onClick={handleFollow}
                                 className={`action ${isFollowing ? 'outline' : 'soft'}`}
                             >
-                                {isFollowing ? t.following : t.follow}
+                                {isFollowing ? t.buttons.following : t.buttons.follow}
                             </button>
                         ) : (
                             <button onClick={onLoginClick} className="action soft">
-                                {t.loginToFollow}
+                                {t.buttons.login}
                             </button>
                         )}
                     </div>
@@ -310,14 +250,14 @@ const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLogin
 
             <section className="profile-card card">
                 <div className="card-header">
-                    <h2 className="card-title">{t.publicMessages}</h2>
+                    <h2 className="card-title">{t.userProfile.messages}</h2>
                     <span className="count-badge">{profile.public_messages?.length || 0}</span>
                 </div>
 
                 {!profile.public_messages || profile.public_messages.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-icon">💭</div>
-                        <p className="empty-title">{t.noMessages}</p>
+                        <p className="empty-title">{t.userProfile.noMessages}</p>
                     </div>
                 ) : (
                     <div className="messages-list">

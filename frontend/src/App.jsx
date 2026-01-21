@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { authAPI } from './services/api';
+import { getInitialLanguage, saveLanguage } from './i18n/translations';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import LinksTab from './components/LinksTab';
@@ -57,7 +58,7 @@ function App() {
   const [activeLinks, setActiveLinks] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [language, setLanguage] = useState('EN');
+  const [language, setLanguage] = useState(getInitialLanguage()); // Auto-detect or load saved
   const [authLoading, setAuthLoading] = useState(true); // Gate initial render until auth is restored
 
   // Determine active tab based on URL
@@ -121,6 +122,7 @@ function App() {
         userId={userId}
         isAuthenticated={isAuthenticated}
         currentUser={currentUser}
+        language={language}
         onBack={() => navigate('/search')}
         onLoginClick={() => navigate('/login')}
       />
@@ -137,6 +139,7 @@ function App() {
       <ProfilePage
         isAuthenticated={isAuthenticated}
         currentUser={currentUser}
+        language={language}
         onLogout={handleLogout}
         onLoginClick={() => navigate('/login')}
         onSignupClick={() => navigate('/signup')}
@@ -211,6 +214,7 @@ function App() {
 
   const handleLanguageChange = (newLang) => {
     setLanguage(newLang);
+    saveLanguage(newLang); // Persist to localStorage
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
   };
 
@@ -275,7 +279,12 @@ function App() {
   return (
     <div className="app">
       {!isAuthPage && !isLinkPage && (
-        <Header isAuthenticated={isAuthenticated} currentUser={currentUser} />
+        <Header 
+          isAuthenticated={isAuthenticated} 
+          currentUser={currentUser}
+          language={language}
+          onLanguageChange={handleLanguageChange}
+        />
       )}
 
       <main className="main-content">
@@ -290,12 +299,13 @@ function App() {
               <LoginPage
                 onLoginSuccess={handleLoginSuccess}
                 onForgotPassword={() => navigate('/recover')}
+                language={language}
               />
             }
           />
           <Route
             path="/signup"
-            element={<SignupPage onSignupSuccess={handleSignupSuccess} />}
+            element={<SignupPage onSignupSuccess={handleSignupSuccess} language={language} />}
           />
           <Route
             path="/recover"
@@ -303,6 +313,7 @@ function App() {
               <PasswordRecoveryPage
                 onRecoverySuccess={handleRecoverySuccess}
                 onBackToLogin={() => navigate('/login')}
+                language={language}
               />
             }
           />
@@ -331,13 +342,14 @@ function App() {
           />
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
-          <Route path="/links" element={<LinksTab isAuthenticated={isAuthenticated} />} />
+          <Route path="/links" element={<LinksTab isAuthenticated={isAuthenticated} language={language} />} />
           <Route
             path="/search"
             element={
               <SearchTab
                 isAuthenticated={isAuthenticated}
                 currentUser={currentUser}
+                language={language}
                 onUserClick={(user) => {
                   setSelectedUser(user);
                   navigate(`/profile/${user.id}`);
@@ -347,13 +359,14 @@ function App() {
           />
           <Route
             path="/messages"
-            element={<MessagesTab isAuthenticated={isAuthenticated} onLoginClick={() => navigate('/login')} onSignupClick={() => navigate('/signup')} />}
+            element={<MessagesTab isAuthenticated={isAuthenticated} onLoginClick={() => navigate('/login')} onSignupClick={() => navigate('/signup')} language={language} />}
           />
           <Route
             path="/settings"
             element={
               <SettingsPage
                 currentUser={currentUser}
+                language={language}
                 onLogout={handleLogout}
                 onLanguageChange={handleLanguageChange}
               />
@@ -376,7 +389,7 @@ function App() {
       </main>
 
       {!isAuthPage && !isLinkPage && (
-        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} language={language} />
       )}
     </div>
   );

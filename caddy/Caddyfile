@@ -1,4 +1,8 @@
-{$DOMAIN}:80, {$DOMAIN}:443 {
+{
+    auto_https off
+}
+
+localhost:80 {
     log {
         level info
     }
@@ -9,10 +13,10 @@
     # API proxy
     route /api/* {
         reverse_proxy saytruth-api:8000 {
-            header_up Host "{$DOMAIN}"
+            header_up Host "localhost"
             header_up X-Real-IP {remote_addr}
             header_up X-Forwarded-For {remote_addr}
-            header_up X-Forwarded-Proto "https"
+            header_up X-Forwarded-Proto "http"
         }
     }
 
@@ -23,13 +27,12 @@
     }
     route @notapi {
         reverse_proxy saytruth-app:5173 {
-            header_up Host "{$DOMAIN}"
+            header_up Host "localhost"
             header_up X-Real-IP {remote_addr}
             header_up X-Forwarded-For {remote_addr}
-            header_up X-Forwarded-Proto "https"
+            header_up X-Forwarded-Proto "http"
         }
     }
 
     encode gzip
 }
-

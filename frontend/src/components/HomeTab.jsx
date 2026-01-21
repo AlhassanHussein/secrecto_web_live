@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userAPI } from '../services/api';
+import { translations } from '../i18n/translations';
 import UserFollowingCard from './UserFollowingCard';
 import './HomeTab.css';
 
-const HomeTab = ({ isAuthenticated, currentUser }) => {
+const HomeTab = ({ isAuthenticated, currentUser, language = 'EN' }) => {
   const [followingUsers, setFollowingUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const t = translations[language] || translations.EN;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -62,16 +64,16 @@ const HomeTab = ({ isAuthenticated, currentUser }) => {
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
           </div>
-          <h2 className="empty-state-title">Create your community</h2>
+          <h2 className="empty-state-title">{t.home.emptyTitle}</h2>
           <p className="empty-state-subtitle">
-            Connect with friends, share thoughts, and build your network. Start by creating an account and adding people to follow.
+            {t.home.emptySubtitle}
           </p>
           <div className="empty-state-actions">
             <button
               className="btn btn-primary"
               onClick={() => navigate('/signup')}
             >
-              Get Started
+              {t.home.getStarted}
             </button>
           </div>
         </section>
@@ -83,10 +85,10 @@ const HomeTab = ({ isAuthenticated, currentUser }) => {
     <div className="home-tab" style={{ padding: '1rem', maxWidth: '520px', margin: '0 auto' }}>
       <div className="home-header">
         <div>
-          <span className="eyebrow">Feed</span>
-          <h1 className="page-title">Your following</h1>
+          <span className="eyebrow">{t.home.eyebrow}</span>
+          <h1 className="page-title">{t.home.title}</h1>
           <p className="page-subtitle">
-            Stay connected with the people you follow
+            {t.home.subtitle}
           </p>
         </div>
       </div>
@@ -94,7 +96,7 @@ const HomeTab = ({ isAuthenticated, currentUser }) => {
       {loading ? (
         <div className="loading-state">
           <div className="spinner"></div>
-          <p>Loading your following...</p>
+          <p>{t.home.loadingFollowing}</p>
         </div>
       ) : followingUsers && followingUsers.length > 0 ? (
         <div className="following-list">
@@ -103,6 +105,7 @@ const HomeTab = ({ isAuthenticated, currentUser }) => {
               key={user.id}
               user={user}
               onCardClick={() => handleUserCardClick(user.id, user.username)}
+              language={language}
             />
           ))}
         </div>
@@ -114,9 +117,9 @@ const HomeTab = ({ isAuthenticated, currentUser }) => {
               <circle cx="12" cy="7" r="4" />
             </svg>
           </div>
-          <h3 className="empty-following-title">No one to follow yet</h3>
+          <h3 className="empty-following-title">{t.home.noFollowing}</h3>
           <p className="empty-following-text">
-            Use the Search tab to find and follow people
+            {t.search.startText}
           </p>
         </section>
       )}

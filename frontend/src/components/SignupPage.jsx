@@ -1,71 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import { translations } from '../i18n/translations';
 import './AuthPages.css';
 
-const translations = {
-    EN: {
-        eyebrow: 'Signup',
-        title: 'Join SayTruth',
-        subtitle: 'Create your account with a secret phrase and answer for recovery.',
-        username: 'Username',
-        name: 'Display Name (optional)',
-        secretPhrase: 'Secret Phrase (hint/question)',
-        secretAnswer: 'Secret Answer',
-        terms: 'I agree to the Terms & Conditions',
-        signup: 'Create account',
-        errorTaken: 'This username is already taken.',
-        success: 'Account created. Redirecting...',
-        helper: 'Mobile-first, multi-language, secure.',
-        phrasePlaceholder: 'e.g., "What is your favorite color?"',
-        answerPlaceholder: 'Your answer to the secret phrase',
-        haveAccount: 'Already have an account?',
-        login: 'Login',
-        backHome: 'Back to home',
-    },
-    AR: {
-        eyebrow: 'إنشاء حساب',
-        title: 'انضم إلى SayTruth',
-        subtitle: 'أنشئ حسابك بعبارة سرية وإجابة للاسترداد.',
-        username: 'اسم المستخدم',
-        name: 'الاسم المعروض (اختياري)',
-        secretPhrase: 'العبارة السرية (تلميح/سؤال)',
-        secretAnswer: 'الإجابة السرية',
-        terms: 'أوافق على الشروط والأحكام',
-        signup: 'إنشاء حساب',
-        errorTaken: 'اسم المستخدم محجوز.',
-        success: 'تم إنشاء الحساب. جارٍ التحويل...',
-        helper: 'محمول أولاً، متعدد اللغات، آمن.',
-        phrasePlaceholder: 'مثال: "ما هو لونك المفضل؟"',
-        answerPlaceholder: 'إجابتك على العبارة السرية',
-        haveAccount: 'هل لديك حساب بالفعل؟',
-        login: 'تسجيل الدخول',
-        backHome: 'العودة للرئيسية',
-    },
-    ES: {
-        eyebrow: 'Registro',
-        title: 'Únete a SayTruth',
-        subtitle: 'Crea tu cuenta con una frase secreta y respuesta para recuperación.',
-        username: 'Usuario',
-        name: 'Nombre para mostrar (opcional)',
-        secretPhrase: 'Frase secreta (pista/pregunta)',
-        secretAnswer: 'Respuesta secreta',
-        terms: 'Acepto los Términos y Condiciones',
-        signup: 'Crear cuenta',
-        errorTaken: 'Ese usuario ya existe.',
-        success: 'Cuenta creada. Redirigiendo...',
-        helper: 'Móvil primero, multilingüe, seguro.',
-        phrasePlaceholder: 'ej. "¿Cuál es tu color favorito?"',
-        answerPlaceholder: 'Tu respuesta a la frase secreta',
-        haveAccount: '¿Ya tienes una cuenta?',
-        login: 'Inicia sesión',
-        backHome: 'Volver a inicio',
-    },
-};
-
-const SignupPage = ({ onSignupSuccess }) => {
+const SignupPage = ({ onSignupSuccess, language = 'EN' }) => {
     const navigate = useNavigate();
-    const [language, setLanguage] = useState('EN');
     const [username, setUsername] = useState('');
     const [name, setName] = useState('');
     const [secretPhrase, setSecretPhrase] = useState('');
@@ -75,7 +15,7 @@ const SignupPage = ({ onSignupSuccess }) => {
     const [success, setSuccess] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const t = translations[language];
+    const t = translations[language] || translations.EN;
     const isRTL = language === 'AR';
 
     const handleSubmit = async (e) => {
@@ -84,25 +24,25 @@ const SignupPage = ({ onSignupSuccess }) => {
         setSuccess('');
 
         if (!username.trim() || !secretPhrase.trim() || !secretAnswer.trim()) {
-            setError('Username, secret phrase, and secret answer are required');
+            setError(t.errors.generic);
             return;
         }
         if (!acceptTerms) {
-            setError(t.terms);
+            setError(t.auth.rememberMe);
             return;
         }
 
         setIsLoading(true);
         try {
             await authAPI.signup(username, name || null, secretPhrase, secretAnswer);
-            setSuccess(t.success);
+            setSuccess(t.auth.signupSuccess);
             setTimeout(() => {
                 if (onSignupSuccess) {
                     onSignupSuccess();
                 }
             }, 1000);
         } catch (err) {
-            setError(err.message || t.errorTaken);
+            setError(err.message || t.auth.userExists);
         } finally {
             setIsLoading(false);
         }
@@ -113,31 +53,20 @@ const SignupPage = ({ onSignupSuccess }) => {
             <section className="auth-card card">
                 <div className="auth-hero">
                     <div className="auth-copy">
-                        <span className="eyebrow">{t.eyebrow}</span>
-                        <h1 className="auth-title">{t.title}</h1>
-                        <p className="auth-subtitle">{t.subtitle}</p>
-                    </div>
-                    <div className="language-toggle" aria-label="Language selector">
-                        {Object.keys(translations).map((lang) => (
-                            <button
-                                key={lang}
-                                className={`lang-pill ${language === lang ? 'active' : ''}`}
-                                onClick={() => setLanguage(lang)}
-                            >
-                                {lang}
-                            </button>
-                        ))}
+                        <span className="eyebrow">{t.auth.signup}</span>
+                        <h1 className="auth-title">{t.auth.signupTitle}</h1>
+                        <p className="auth-subtitle">{t.auth.signupSubtitle}</p>
                     </div>
                 </div>
 
                 <div className="helper-row">
-                    <span className="badge">{t.helper}</span>
+                    <span className="badge">{t.auth.notAuthenticated}</span>
                 </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-username">{t.username}</label>
+                            <label className="label" htmlFor="signup-username">{t.common.username}</label>
                             <span className="hint">required</span>
                         </div>
                         <input
@@ -145,43 +74,44 @@ const SignupPage = ({ onSignupSuccess }) => {
                             className="input-field"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder={t.username}
+                            placeholder={t.common.username}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-name">{t.name}</label>
+                            <label className="label" htmlFor="signup-name">{t.common.name}</label>
                         </div>
                         <input
                             id="signup-name"
                             className="input-field"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder={t.name}
+                            placeholder={t.common.name}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-phrase">{t.secretPhrase}</label>
+                            <label className="label" htmlFor="signup-phrase">{t.auth.secretPhrase}</label>
                             <span className="hint">required</span>
                         </div>
                         <input
                             id="signup-phrase"
                             className="input-field"
+                            type="text"
                             value={secretPhrase}
                             onChange={(e) => setSecretPhrase(e.target.value)}
-                            placeholder={t.phrasePlaceholder}
+                            placeholder={t.auth.secretPhrase}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
 
                     <div className="form-group">
                         <div className="label-row">
-                            <label className="label" htmlFor="signup-answer">{t.secretAnswer}</label>
+                            <label className="label" htmlFor="signup-answer">{t.auth.secretAnswer}</label>
                             <span className="hint">required</span>
                         </div>
                         <input
@@ -190,7 +120,7 @@ const SignupPage = ({ onSignupSuccess }) => {
                             type="password"
                             value={secretAnswer}
                             onChange={(e) => setSecretAnswer(e.target.value)}
-                            placeholder={t.answerPlaceholder}
+                            placeholder={t.auth.secretAnswer}
                             dir={isRTL ? 'rtl' : 'ltr'}
                         />
                     </div>
@@ -202,14 +132,14 @@ const SignupPage = ({ onSignupSuccess }) => {
                             checked={acceptTerms}
                             onChange={(e) => setAcceptTerms(e.target.checked)}
                         />
-                        <label htmlFor="terms">{t.terms}</label>
+                        <label htmlFor="terms">{t.auth.rememberMe}</label>
                     </div>
 
                     {error && <div className="error-banner" role="alert">{error}</div>}
                     {success && <div className="success-banner" role="status">{success}</div>}
 
                     <button type="submit" className="primary-btn" disabled={isLoading}>
-                        {isLoading ? 'Creating account...' : t.signup}
+                        {isLoading ? t.common.loading : t.auth.signup}
                     </button>
                 </form>
 
@@ -219,13 +149,13 @@ const SignupPage = ({ onSignupSuccess }) => {
                         onClick={() => navigate('/login')}
                         className="nav-btn login-btn"
                     >
-                        {t.haveAccount} <strong>{t.login}</strong>
+                        {t.auth.haveAccount} <strong>{t.buttons.login}</strong>
                     </button>
                     <button 
                         onClick={() => navigate('/home')}
                         className="nav-btn home-btn"
                     >
-                        {t.backHome}
+                        {t.buttons.backToHome}
                     </button>
                 </div>
             </section>

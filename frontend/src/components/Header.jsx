@@ -1,11 +1,11 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { translations } from '../i18n/translations';
 import './Header.css';
 
-const Header = ({ isAuthenticated, currentUser }) => {
+const Header = ({ isAuthenticated, currentUser, language, onLanguageChange }) => {
     const navigate = useNavigate();
-    const [language, setLanguage] = useState('EN');
-    const username = isAuthenticated && currentUser?.username ? currentUser.username : 'Guest';
+    const t = translations[language] || translations.EN;
+    const username = isAuthenticated && currentUser?.username ? currentUser.username : t.auth.login;
 
     const languages = ['EN', 'AR', 'ES'];
 
@@ -14,7 +14,7 @@ const Header = ({ isAuthenticated, currentUser }) => {
     };
 
     return (
-        <header className="header">
+        <header className={`header ${language === 'AR' ? 'rtl' : ''}`}>
             <div className="header-content">
                 <div className="header-left">
                     <div className="logo">
@@ -30,7 +30,7 @@ const Header = ({ isAuthenticated, currentUser }) => {
                             <button
                                 key={lang}
                                 className={`lang-btn ${language === lang ? 'active' : ''}`}
-                                onClick={() => setLanguage(lang)}
+                                onClick={() => onLanguageChange(lang)}
                             >
                                 {lang}
                             </button>
@@ -39,7 +39,7 @@ const Header = ({ isAuthenticated, currentUser }) => {
 
                     <button
                         className="profile-btn"
-                        aria-label="Profile"
+                        aria-label={t.nav.profile}
                         type="button"
                         onClick={handleProfileClick}
                     >

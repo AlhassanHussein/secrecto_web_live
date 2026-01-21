@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { translations } from '../i18n/translations';
 import './UserFollowingCard.css';
 
-const UserFollowingCard = ({ user, onCardClick }) => {
+const UserFollowingCard = ({ user, onCardClick, language = 'EN' }) => {
     const [lastMessage, setLastMessage] = useState(null);
+    const t = translations[language] || translations.EN;
 
     useEffect(() => {
         if (user.public_messages && user.public_messages.length > 0) {
@@ -30,10 +32,10 @@ const UserFollowingCard = ({ user, onCardClick }) => {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return 'now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
+        if (diffMins < 1) return t.time.now;
+        if (diffMins < 60) return `${diffMins}${t.time.minutesShort}`;
+        if (diffHours < 24) return `${diffHours}${t.time.hoursShort}`;
+        if (diffDays < 7) return `${diffDays}${t.time.daysShort}`;
         return date.toLocaleDateString();
     };
 
@@ -53,13 +55,13 @@ const UserFollowingCard = ({ user, onCardClick }) => {
 
             {lastMessage ? (
                 <div className="user-last-message">
-                    <p className="message-label">Last message</p>
+                    <p className="message-label">{t.userProfile.lastMessage}</p>
                     <p className="message-content">{truncateText(lastMessage.content)}</p>
                     <p className="message-time">{formatDate(lastMessage.created_at)}</p>
                 </div>
             ) : (
                 <div className="user-bio-empty">
-                    <p className="bio-label">No messages yet</p>
+                    <p className="bio-label">{t.userProfile.noMessagesYet}</p>
                 </div>
             )}
 
