@@ -50,7 +50,7 @@ async def get_inbox(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Get all messages grouped by status: inbox, public, deleted
+    # Get all messages grouped by status: inbox, public, favorite
     inbox = db.query(Message).filter(
         Message.receiver_id == current_user.id,
         Message.status == MessageStatus.inbox
@@ -61,20 +61,20 @@ async def get_inbox(
         Message.status == MessageStatus.public
     ).order_by(Message.created_at.desc()).all()
     
-    deleted = db.query(Message).filter(
+    favorite = db.query(Message).filter(
         Message.receiver_id == current_user.id,
-        Message.status == MessageStatus.deleted
+        Message.status == MessageStatus.favorite
     ).order_by(Message.created_at.desc()).all()
     
     # Decrypt all messages
-    for msg_list in [inbox, public, deleted]:
+    for msg_list in [inbox, public, favorite]:
         for msg in msg_list:
             msg.content = decrypt_message(msg.content)
     
     return {
         "inbox": [{"id": m.id, "receiver_id": m.receiver_id, "content": m.content, "status": m.status.value, "created_at": m.created_at} for m in inbox],
         "public": [{"id": m.id, "receiver_id": m.receiver_id, "content": m.content, "status": m.status.value, "created_at": m.created_at} for m in public],
-        "deleted": [{"id": m.id, "receiver_id": m.receiver_id, "content": m.content, "status": m.status.value, "created_at": m.created_at} for m in deleted]
+        "favorite": [{"id": m.id, "receiver_id": m.receiver_id, "content": m.content, "status": m.status.value, "created_at": m.created_at} for m in favorite]
     }
 
 
@@ -195,8 +195,7 @@ async def delete_message(
     db: Session = Depends(get_db)
 ) -> dict:
     """
-    Soft delete a message. Changes status to 'deleted'.
-    For hard delete, use background cleanup jobs.
+    Hard delete a message. Permanently removes it from the database.
     """
     # Find message
     message = db.query(Message).filter(Message.id == message_id).first()
@@ -207,9 +206,92 @@ async def delete_message(
     if message.receiver_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     
-    # Soft delete (set status to deleted)
-    message.status = MessageStatus.deleted
+    # Hard delete
+    db.delete(message)
     db.commit()
     
-    return {"message": "Message deleted"}
+    return {"message": "Message permanently deleted"}
 
+
+@router.patch("/{message_id}/add-favorite", response_model=MessageResponse)
+async def add_to_favorite(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Message:
+    """
+    Move message to favorite. Only works for inbox messages.
+    """
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if not message:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    
+    # Verify ownership
+    if message.receiver_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    message.status = MessageStatus.favorite
+    db.commit()
+    db.refresh(message)
+    
+    # Decrypt for response
+    message.content = decrypt_message(message.content)
+    
+    return message
+
+
+@router.patch("/{message_id}/remove-favorite", response_model=MessageResponse)
+async def remove_from_favorite(
+    message_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> Message:
+    """
+    Move message from favorite back to inbox.
+    """
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if not message:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    
+    # Verify ownership
+    if message.receiver_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+    
+    message.status = MessageStatus.inbox
+    db.commit()
+    db.refresh(message)
+    
+    # Decrypt for response
+    message.content = decrypt_message(message.content)
+    
+    return message
+
+
+@router.delete("/section/{section}/all", status_code=status.HTTP_200_OK)
+async def delete_all_in_section(
+    section: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Hard delete all messages in a section (inbox, public, favorite).
+    """
+    if section not in ['inbox', 'public', 'favorite']:
+        raise HTTPException(status_code=400, detail="Invalid section")
+    
+    # Convert section string to MessageStatus enum
+    status_enum = MessageStatus(section)
+    
+    # Find all messages in section for this user
+    messages = db.query(Message).filter(
+        Message.receiver_id == current_user.id,
+        Message.status == status_enum
+    ).all()
+    
+    # Delete all messages
+    for msg in messages:
+        db.delete(msg)
+    
+    db.commit()
+    
+    return {"message": f"Deleted {len(messages)} messages from {section}"}

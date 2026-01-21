@@ -149,7 +149,7 @@ export const messagesAPI = {
   },
 
   getInbox: async () => {
-    // Fetch all messages grouped by status: inbox, public, deleted
+    // Fetch all messages grouped by status: inbox, public, favorite
     return apiRequest('/api/messages/inbox');
   },
 
@@ -180,8 +180,26 @@ export const messagesAPI = {
     });
   },
 
+  addToFavorite: async (messageId) => {
+    return apiRequest(`/api/messages/${messageId}/add-favorite`, {
+      method: 'PATCH',
+    });
+  },
+
+  removeFromFavorite: async (messageId) => {
+    return apiRequest(`/api/messages/${messageId}/remove-favorite`, {
+      method: 'PATCH',
+    });
+  },
+
   deleteMessage: async (messageId) => {
     return apiRequest(`/api/messages/${messageId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  deleteAllInSection: async (section) => {
+    return apiRequest(`/api/messages/section/${section}/all`, {
       method: 'DELETE',
     });
   },

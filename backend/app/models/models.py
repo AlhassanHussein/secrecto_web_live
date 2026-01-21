@@ -11,7 +11,7 @@ from app.db.database import Base
 class MessageStatus(str, enum.Enum):
     inbox = "inbox"
     public = "public"
-    deleted = "deleted"
+    favorite = "favorite"
 
 
 class LinkStatus(str, enum.Enum):
