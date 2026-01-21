@@ -123,6 +123,30 @@ async def get_public_profile(
     }
 
 
+@router.get("/{user_id}/follow-status", response_model=dict)
+async def check_follow_status(
+    user_id: int,
+    current_user: User = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Check if current user is following the given user.
+    Returns {"is_following": true/false}
+    """
+    if not current_user:
+        return {"is_following": False}
+    
+    if user_id == current_user.id:
+        return {"is_following": False}
+    
+    follow = db.query(Follow).filter(
+        Follow.follower_id == current_user.id,
+        Follow.following_id == user_id
+    ).first()
+    
+    return {"is_following": bool(follow)}
+
+
 @router.post("/follow/{user_id}", status_code=status.HTTP_201_CREATED)
 @limiter.limit("20/hour")
 async def follow_user(
@@ -179,11 +203,30 @@ async def unfollow_user(
     db.commit()
 
 
+@router.get("/me/following", response_model=List[UserResponse])
+async def get_my_following(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> List[User]:
+    """
+    Get list of users that the current user is following.
+    """
+    follows = db.query(Follow).filter(Follow.follower_id == current_user.id).all()
+    following_ids = [f.following_id for f in follows]
+    
+    if not following_ids:
+        return []
+    
+    users = db.query(User).filter(User.id.in_(following_ids)).all()
+    return users
+
+
 @router.get("/following", response_model=List[UserResponse])
 async def get_following(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> List[User]:
+    # Deprecated - use /me/following instead
     # Get all users current user follows
     follows = db.query(Follow).filter(Follow.follower_id == current_user.id).all()
     following_ids = [f.following_id for f in follows]

@@ -119,21 +119,13 @@ const MessageList = ({ messages, onMakePublic, onDelete, language, t }) => {
                 </span>
               </div>
               <div className={`message-actions ${isRTL ? 'rtl' : ''}`}>
-                {msg.status !== 'public' && (
-                  <button
-                    onClick={() => onMakePublic(msg.id)}
-                    className="action-btn make-public"
-                    title={t.markPublic}
-                  >
-                    ⭐
-                  </button>
-                )}
+               
                 <button
                   onClick={() => onDelete(msg.id)}
                   className="action-btn delete"
                   title={t.delete}
                 >
-                  🗑️
+                 Delete 🗑️
                 </button>
               </div>
             </div>

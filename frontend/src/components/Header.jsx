@@ -6,12 +6,11 @@ const Header = ({ isAuthenticated, currentUser }) => {
     const navigate = useNavigate();
     const [language, setLanguage] = useState('EN');
     const username = isAuthenticated && currentUser?.username ? currentUser.username : 'Guest';
-    const targetUsername = isAuthenticated && currentUser?.username ? currentUser.username : 'guest';
 
     const languages = ['EN', 'AR', 'ES'];
 
     const handleProfileClick = () => {
-        navigate(`/profile/${targetUsername}`);
+        navigate(isAuthenticated ? '/profile/me' : '/profile/guest');
     };
 
     return (

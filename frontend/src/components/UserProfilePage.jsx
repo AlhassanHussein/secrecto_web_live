@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { userAPI, messagesAPI } from '../services/api';
 import './ProfilePage.css'; // Reuse profile styles
 
-const UserProfilePage = ({ username, selectedUser, isAuthenticated, currentUser, onBack, onLoginClick }) => {
+const UserProfilePage = ({ userId, isAuthenticated, currentUser, onBack, onLoginClick }) => {
     const [profile, setProfile] = useState(null);
     const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -77,23 +77,36 @@ const UserProfilePage = ({ username, selectedUser, isAuthenticated, currentUser,
     const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
 
     useEffect(() => {
-        loadProfile();
-    }, [username, selectedUser?.id]);
+        if (userId) {
+            loadProfile();
+        }
+    }, [userId, isAuthenticated]); // Re-fetch when userId or auth state changes
 
     const loadProfile = async () => {
         try {
             setLoading(true);
             setError(null);
-            let data;
-            if (username) {
-                data = await userAPI.getUserByUsername(username);
-            } else if (selectedUser?.id) {
-                data = await userAPI.getUserProfile(selectedUser.id);
-            } else {
-                throw new Error('No user provided');
-            }
+            
+            // Fetch user profile using user_id
+            const data = await userAPI.getUserProfile(userId);
             setProfile(data);
-            setIsFollowing(data.is_following || false);
+            
+            // Check follow status - MUST be checked before rendering button
+            if (isAuthenticated) {
+                try {
+                    const statusData = await userAPI.checkFollowStatus(userId);
+                    console.log('✅ Follow status for user', userId, ':', statusData);
+                    // CRITICAL: Set the exact boolean value from backend
+                    setIsFollowing(statusData.is_following === true);
+                } catch (err) {
+                    console.error('❌ Error checking follow status:', err);
+                    // If error, default to false (not following)
+                    setIsFollowing(false);
+                }
+            } else {
+                // Guest users are never following anyone
+                setIsFollowing(false);
+            }
         } catch (err) {
             setError(err.message || t.error);
             console.error('Failed to load profile:', err);
@@ -110,14 +123,27 @@ const UserProfilePage = ({ username, selectedUser, isAuthenticated, currentUser,
 
         try {
             if (isFollowing) {
+                // User is following → UNFOLLOW
+                console.log('🔄 Unfollowing user', profile.id);
                 await userAPI.unfollowUser(profile.id);
+                console.log('✅ Successfully unfollowed');
                 setIsFollowing(false);
             } else {
+                // User is NOT following → FOLLOW
+                console.log('🔄 Following user', profile.id);
                 await userAPI.followUser(profile.id);
+                console.log('✅ Successfully followed');
                 setIsFollowing(true);
             }
         } catch (err) {
-            console.error('Failed to update follow status:', err);
+            console.error('❌ Failed to update follow status:', err);
+            // Re-fetch the actual state from backend to stay in sync
+            try {
+                const statusData = await userAPI.checkFollowStatus(profile.id);
+                setIsFollowing(statusData.is_following === true);
+            } catch (refetchErr) {
+                console.error('❌ Failed to refetch follow status:', refetchErr);
+            }
         }
     };
 

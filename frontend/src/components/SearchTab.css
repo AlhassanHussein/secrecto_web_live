@@ -536,6 +536,19 @@
     box-shadow: var(--shadow-md);
 }
 
+.remove-friend-btn {
+    background: var(--gray-100);
+    color: var(--gray-600);
+    border: 2px solid var(--gray-300);
+}
+
+.remove-friend-btn:hover {
+    background: var(--error);
+    color: var(--white);
+    border-color: var(--error);
+    box-shadow: var(--shadow-md);
+}
+
 .anonymous-msg-btn {
     background: var(--gradient-primary);
     color: var(--white);

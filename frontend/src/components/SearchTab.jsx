@@ -5,8 +5,6 @@ import './SearchTab.css';
 const translations = {
     EN: {
         eyebrow: 'Search',
-        title: 'Find people. Send the truth.',
-        subtitle: 'Search by username or name, add friends, or send one-time anonymous messages.',
         searchPlaceholder: 'Search by username or name...',
         startTitle: 'Start Searching',
         startText: 'Type a username or name to see matching users.',
@@ -14,21 +12,17 @@ const translations = {
         noResultsTitle: 'No matches found',
         noResultsText: 'Try a different name or check spelling.',
         resultsTitle: 'Live matches',
-        addFriend: 'Add Friend',
+        follow: 'Follow',
+        following: 'Following',
         sendAnonymous: 'Send Anonymous Message',
         sent: 'Message Sent',
-        friend: 'Friend',
-        quotaLabel: '1 message / session per user',
-        authNeeded: 'Login required to add friends.',
-        sessionRule: 'One-time anonymous message limit enforced per session.',
+        authNeeded: 'Login required to follow.',
         emptyHint: 'Safe, private, and touch-friendly.',
         chipRecent: 'Recent',
         chipPopular: 'Popular now',
     },
     AR: {
         eyebrow: 'بحث',
-        title: 'ابحث عن الأصدقاء وأرسل الحقيقة',
-        subtitle: 'ابحث بالاسم أو اسم المستخدم، أضف الأصدقاء أو أرسل رسالة مجهولة لمرة واحدة.',
         searchPlaceholder: 'ابحث بالاسم أو اسم المستخدم...',
         startTitle: 'ابدأ البحث',
         startText: 'اكتب اسم المستخدم أو الاسم لرؤية النتائج.',
@@ -36,20 +30,17 @@ const translations = {
         noResultsTitle: 'لا توجد نتائج',
         noResultsText: 'جرّب اسمًا مختلفًا أو تحقق من الإملاء.',
         resultsTitle: 'النتائج المباشرة',
-        addFriend: 'إضافة صديق',
+        follow: 'متابعة',
+        following: 'يتابع',
         sendAnonymous: 'إرسال رسالة مجهولة',
         sent: 'تم الإرسال',
-        friend: 'صديق',
-        quotaLabel: 'رسالة واحدة لكل جلسة لكل مستخدم',
-        authNeeded: 'تسجيل الدخول مطلوب لإضافة الأصدقاء.',
-        sessionRule: 'يتم تطبيق حد رسالة مجهولة واحدة لكل جلسة.',
+        authNeeded: 'تسجيل الدخول مطلوب للمتابعة.',
         emptyHint: 'آمن، خاص، وملائم للمس.',
         chipRecent: 'الأحدث',
         chipPopular: 'شائع الآن',
     },
     ES: {
         eyebrow: 'Buscar',
-        title: 'Encuentra personas. Envía la verdad.',
         subtitle: 'Busca por nombre o usuario, agrega amigos o envía un mensaje anónimo único.',
         searchPlaceholder: 'Busca por usuario o nombre...',
         startTitle: 'Comienza a buscar',
@@ -58,12 +49,11 @@ const translations = {
         noResultsTitle: 'Sin resultados',
         noResultsText: 'Prueba con otro nombre o revisa la ortografía.',
         resultsTitle: 'Coincidencias en vivo',
-        addFriend: 'Agregar amigo',
+        follow: 'Seguir',
+        following: 'Siguiendo',
         sendAnonymous: 'Enviar mensaje anónimo',
         sent: 'Mensaje enviado',
-        friend: 'Amigo',
-        quotaLabel: '1 mensaje / sesión por usuario',
-        authNeeded: 'Debes iniciar sesión para agregar amigos.',
+        authNeeded: 'Debes iniciar sesión para seguir.',
         sessionRule: 'Límite de un mensaje anónimo por sesión.',
         emptyHint: 'Seguro, privado y táctil.',
         chipRecent: 'Reciente',
@@ -77,6 +67,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
     const [hasSearched, setHasSearched] = useState(false);
     const [searchResults, setSearchResults] = useState([]);
     const [sentMessages, setSentMessages] = useState(new Set());
+    const [followingSet, setFollowingSet] = useState(new Set());
     const [language, setLanguage] = useState('EN');
     const [error, setError] = useState(null);
     const [friendMessage, setFriendMessage] = useState(null);
@@ -116,7 +107,28 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                 setSearchResults([]);
                 setError('User not found');
             } else {
-                setSearchResults(exact);
+                // For each user, check their follow status
+                const enrichedResults = await Promise.all(
+                    exact.map(async (user) => {
+                        try {
+                            // Check follow status (works for guests too - returns false)
+                            const statusData = await userAPI.checkFollowStatus(user.id);
+                            console.log('Follow status for user', user.id, ':', statusData);
+                            return {
+                                ...user,
+                                isFriend: statusData.is_following || false,
+                            };
+                        } catch (err) {
+                            console.error('Error checking follow status:', err);
+                            return { ...user, isFriend: false };
+                        }
+                    })
+                );
+                console.log('Search results:', enrichedResults);
+                setSearchResults(enrichedResults);
+                // Update followingSet
+                const newFollowingSet = new Set(enrichedResults.filter(u => u.isFriend).map(u => u.id));
+                setFollowingSet(newFollowingSet);
             }
         } catch (err) {
             setSearchResults([]);
@@ -156,16 +168,45 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
 
     const handleAddFriend = async (user) => {
         if (!isAuthenticated) {
-            setFriendMessage('Login required to add friends.');
+            setFriendMessage('Login required to follow.');
             return;
         }
 
         try {
-            await userAPI.followUser(user.id);
-            setFriendMessage('Friend added');
+            console.log('Attempting to follow user:', user.id);
+            const result = await userAPI.followUser(user.id);
+            console.log('Follow result:', result);
+            setFollowingSet((prev) => new Set([...prev, user.id]));
             setSearchResults((prev) => prev.map((u) => (u.id === user.id ? { ...u, isFriend: true } : u)));
+            setFriendMessage('Now following user!');
+            setTimeout(() => setFriendMessage(null), 3000);
         } catch (err) {
-            setFriendMessage('Could not add friend');
+            console.error('Error following user:', err);
+            const errorMsg = err.message || 'Could not follow user';
+            setFriendMessage(errorMsg.includes('Already following') ? 'Already following this user' : errorMsg);
+            setTimeout(() => setFriendMessage(null), 3000);
+        }
+    };
+
+    const handleRemoveFriend = async (user) => {
+        if (!isAuthenticated) return;
+
+        try {
+            console.log('Attempting to unfollow user:', user.id);
+            const result = await userAPI.unfollowUser(user.id);
+            console.log('Unfollow result:', result);
+            setFollowingSet((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(user.id);
+                return newSet;
+            });
+            setSearchResults((prev) => prev.map((u) => (u.id === user.id ? { ...u, isFriend: false } : u)));
+            setFriendMessage('Unfollowed user');
+            setTimeout(() => setFriendMessage(null), 3000);
+        } catch (err) {
+            console.error('Error unfollowing user:', err);
+            setFriendMessage('Could not unfollow user');
+            setTimeout(() => setFriendMessage(null), 3000);
         }
     };
 
@@ -184,37 +225,8 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
     return (
         <div className={`search-tab ${isRTL ? 'rtl' : ''}`}>
             <section className="search-hero card">
-                <div className="hero-top">
-                    <div className="hero-copy">
-                        <span className="eyebrow">{t.eyebrow}</span>
-                        <h1 className="hero-title">{t.title}</h1>
-                        <p className="hero-subtitle">{t.subtitle}</p>
-                        <div className="quota-chip">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <polyline points="12 6 12 12 16 14" />
-                            </svg>
-                            {t.quotaLabel}
-                        </div>
-                    </div>
-
-                    <div className="hero-user">
-                        <div className="user-chip">
-                            <span className="user-dot"></span>
-                            {currentUsername}
-                        </div>
-                        <button className="profile-icon-btn" aria-label="Profile" type="button">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="8" r="4" />
-                                <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="hero-controls">
-                    <div className="session-note">{t.sessionRule}</div>
-                </div>
+               
+              
 
                 <div className="search-input-wrapper elevated">
                     <svg
@@ -253,29 +265,10 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                     </form>
                 </div>
 
-                <div className="search-helper-row">
-                    <span className="helper-pill primary">{t.chipRecent}</span>
-                    <span className="helper-pill soft">{t.chipPopular}</span>
-                    <span className="helper-pill ghost">{t.emptyHint}</span>
-                </div>
+           
             </section>
 
-            <section className="search-meta">
-                <div className="meta-card">
-                    <div className="meta-icon primary" aria-hidden="true">🔒</div>
-                    <div className="meta-copy">
-                        <p className="meta-label">One-time anonymous message</p>
-                        <p className="meta-text">{t.sessionRule}</p>
-                    </div>
-                </div>
-                <div className="meta-card soft">
-                    <div className="meta-icon" aria-hidden="true">👤</div>
-                    <div className="meta-copy">
-                        <p className="meta-label">Friend requests</p>
-                        <p className="meta-text">{t.authNeeded}</p>
-                    </div>
-                </div>
-            </section>
+          
 
             <section className="results-surface card">
                 <div className="results-top">
@@ -349,7 +342,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                                                             <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
                                                             <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                                                         </svg>
-                                                        {t.friend}
+                                                        {t.following}
                                                     </span>
                                                 )}
                                             </div>
@@ -358,51 +351,7 @@ const SearchTab = ({ isAuthenticated, onUserClick, currentUser = null }) => {
                                         </div>
                                     </div>
 
-                                    <div className="user-actions">
-                                        {!user.isFriend && (
-                                            <button
-                                                className="action-btn add-friend-btn"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleAddFriend(user);
-                                                }}
-                                            >
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                                                    <circle cx="9" cy="7" r="4" />
-                                                    <line x1="19" y1="8" x2="19" y2="14" />
-                                                    <line x1="22" y1="11" x2="16" y2="11" />
-                                                </svg>
-                                                {t.addFriend}
-                                            </button>
-                                        )}
-                                        <button
-                                            className="action-btn send-btn"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleSendAnonymousMessage(user);
-                                            }}
-                                            disabled={sentMessages.has(user.id)}
-                                        >
-                                            {sentMessages.has(user.id) ? (
-                                                <>
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <polyline points="20 6 9 17 4 12" />
-                                                    </svg>
-                                                    {t.sent}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                                        <path d="M12 8v4" />
-                                                        <path d="M12 16h.01" />
-                                                    </svg>
-                                                    {t.sendAnonymous}
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
+                                  
                                 </div>
                             ))}
                         </div>

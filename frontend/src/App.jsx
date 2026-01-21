@@ -28,7 +28,7 @@ const PublicLinkPageWrapper = ({ language }) => {
       <PublicLinkPage publicId={publicId} language={language} />
       <div className="link-page-close">
         <button onClick={() => navigate('/home')} className="btn secondary">
-          ← Back
+          ← Back To Home Page
         </button>
       </div>
     </div>
@@ -43,7 +43,7 @@ const PrivateLinkPageWrapper = ({ language }) => {
       <PrivateLinkPage privateId={privateId} language={language} />
       <div className="link-page-close">
         <button onClick={() => navigate('/home')} className="btn secondary">
-          ← Back
+          ← Back To Home Page
         </button>
       </div>
     </div>
@@ -58,6 +58,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [language, setLanguage] = useState('EN');
+  const [authLoading, setAuthLoading] = useState(true); // Gate initial render until auth is restored
 
   // Determine active tab based on URL
   const getActiveTabFromPath = () => {
@@ -72,12 +73,52 @@ function App() {
 
   const activeTab = getActiveTabFromPath();
 
-  const UserProfileRouteWrapper = ({ isAuthenticated, currentUser, selectedUser }) => {
-    const { username } = useParams();
+  const ProfileRouteWrapper = ({ isAuthenticated, currentUser }) => {
+    const { userId } = useParams();
+    
+    // If trying to access own profile as public profile, redirect to /profile/me
+    if (isAuthenticated && currentUser && userId === currentUser.id.toString()) {
+      return <Navigate to="/profile/me" replace />;
+    }
+    
+    // Special case: guest profile - show a guest-friendly profile page
+    if (userId === 'guest') {
+      return (
+        <div style={{ padding: '1rem', maxWidth: '520px', margin: '0 auto' }}>
+          <section className="empty-state-card">
+            <div className="empty-state-icon">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <h2 className="empty-state-title">You're browsing as a guest</h2>
+            <p className="empty-state-subtitle">
+              Create an account to build your profile, share links, and connect with others.
+            </p>
+            <div className="empty-state-actions">
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate('/login')}
+              >
+                Login
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => navigate('/signup')}
+              >
+                Sign up
+              </button>
+            </div>
+          </section>
+        </div>
+      );
+    }
+    
+    // Public profile view - show UserProfilePage for any user_id
     return (
       <UserProfilePage
-        username={username}
-        selectedUser={selectedUser}
+        userId={userId}
         isAuthenticated={isAuthenticated}
         currentUser={currentUser}
         onBack={() => navigate('/search')}
@@ -86,22 +127,12 @@ function App() {
     );
   };
 
-  const ProfileRouteWrapper = ({ isAuthenticated, currentUser }) => {
-    const { username } = useParams();
-    // If authenticated, always force the URL to your own username
-    if (isAuthenticated) {
-      if (!currentUser?.username) {
-        return <Navigate to="/profile/guest" replace />;
-      }
-      if (username !== currentUser.username) {
-        return <Navigate to={`/profile/${currentUser.username}`} replace />;
-      }
-    } else {
-      // If not authenticated, any non-guest profile path should point to guest
-      if (username !== 'guest') {
-        return <Navigate to="/profile/guest" replace />;
-      }
+  const MyProfileRouteWrapper = ({ isAuthenticated, currentUser }) => {
+    // Personal profile - only accessible if authenticated
+    if (!isAuthenticated) {
+      return <Navigate to="/profile/guest" replace />;
     }
+    
     return (
       <ProfilePage
         isAuthenticated={isAuthenticated}
@@ -109,24 +140,40 @@ function App() {
         onLogout={handleLogout}
         onLoginClick={() => navigate('/login')}
         onSignupClick={() => navigate('/signup')}
-        onSettingsClick={() => requireAuth() && navigate('/settings')}
+        onSettingsClick={() => navigate('/settings')}
       />
     );
   };
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkAuth = async () => {
+    // Global auth restoration on app startup (prevents guest flicker)
+    const initAuth = async () => {
+      const token = localStorage.getItem('authToken');
+
+      // No token → treat as guest and finish fast
+      if (!token) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
       try {
+        // Validate token with backend; if valid, hydrate user
         const user = await authAPI.getCurrentUser();
         setCurrentUser(user);
         setIsAuthenticated(true);
       } catch (err) {
-        // Not authenticated
+        console.error('Auth restore failed; clearing token.', err);
+        authAPI.logout();
         setIsAuthenticated(false);
+        setCurrentUser(null);
+      } finally {
+        setAuthLoading(false);
       }
     };
-    checkAuth();
+
+    initAuth();
   }, []);
 
   const handleCreateLink = (newLink) => {
@@ -167,6 +214,38 @@ function App() {
     authAPI.getCurrentUser().then(user => setCurrentUser(user)).catch(() => {});
   };
 
+  // Skeleton cards shown while auth is being restored (partial UI only)
+  const CardsSkeleton = () => (
+    <div className="cards-skeleton" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', maxWidth: '720px', margin: '0 auto' }}>
+      {[1, 2, 3].map((idx) => (
+        <div
+          key={idx}
+          className="card skeleton-card"
+          style={{
+            borderRadius: '16px',
+            padding: '1.25rem',
+            background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 37%, rgba(255,255,255,0.04) 63%)',
+            backgroundSize: '400% 100%',
+            animation: 'shimmer 1.4s ease-in-out infinite',
+            minHeight: '120px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          }}
+        >
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ height: 12, width: '55%', background: 'rgba(255,255,255,0.14)', borderRadius: 8, marginBottom: 8 }} />
+              <div style={{ height: 10, width: '38%', background: 'rgba(255,255,255,0.12)', borderRadius: 8 }} />
+            </div>
+            <div style={{ width: 80, height: 32, borderRadius: 999, background: 'rgba(255,255,255,0.08)' }} />
+          </div>
+          <div style={{ marginTop: 14, height: 10, width: '92%', background: 'rgba(255,255,255,0.08)', borderRadius: 8 }} />
+          <div style={{ marginTop: 10, height: 10, width: '76%', background: 'rgba(255,255,255,0.08)', borderRadius: 8 }} />
+        </div>
+      ))}
+    </div>
+  );
+
   // Auth guard
   const requireAuth = () => {
     if (!isAuthenticated) {
@@ -182,7 +261,7 @@ function App() {
       links: '/links',
       search: '/search',
       messages: '/messages',
-      profile: isAuthenticated && currentUser?.username ? `/profile/${currentUser.username}` : '/profile/guest',
+      profile: isAuthenticated ? '/profile/me' : '/profile/guest',
     };
     navigate(pathMap[tab] || '/home');
   };
@@ -200,7 +279,10 @@ function App() {
       )}
 
       <main className="main-content">
-        <Routes>
+          {authLoading ? (
+            <CardsSkeleton />
+          ) : (
+            <Routes>
           {/* Auth Routes */}
           <Route
             path="/login"
@@ -240,7 +322,8 @@ function App() {
             path="/home"
             element={
               <HomeTab 
-                isAuthenticated={isAuthenticated} 
+                isAuthenticated={isAuthenticated}
+                currentUser={currentUser}
                 language={language} 
                 onLinkCreated={handleCreateLink} 
               />
@@ -257,22 +340,14 @@ function App() {
                 currentUser={currentUser}
                 onUserClick={(user) => {
                   setSelectedUser(user);
-                  navigate(`/user/${user.username}`);
+                  navigate(`/profile/${user.id}`);
                 }}
               />
             }
           />
           <Route
-            path="/user/:username"
-            element={<UserProfileRouteWrapper
-              isAuthenticated={isAuthenticated}
-              currentUser={currentUser}
-              selectedUser={selectedUser}
-            />}
-          />
-          <Route
             path="/messages"
-            element={<MessagesTab onMessageClick={() => requireAuth()} />}
+            element={<MessagesTab isAuthenticated={isAuthenticated} onLoginClick={() => navigate('/login')} onSignupClick={() => navigate('/signup')} />}
           />
           <Route
             path="/settings"
@@ -286,13 +361,18 @@ function App() {
           />
           <Route
             path="/profile"
-            element={<Navigate to={isAuthenticated && currentUser?.username ? `/profile/${currentUser.username}` : '/profile/guest'} replace />}
+            element={<Navigate to={isAuthenticated ? '/profile/me' : '/profile/guest'} replace />}
           />
           <Route
-            path="/profile/:username"
+            path="/profile/me"
+            element={<MyProfileRouteWrapper isAuthenticated={isAuthenticated} currentUser={currentUser} />}
+          />
+          <Route
+            path="/profile/:userId"
             element={<ProfileRouteWrapper isAuthenticated={isAuthenticated} currentUser={currentUser} />}
           />
-        </Routes>
+          </Routes>
+        )}
       </main>
 
       {!isAuthPage && !isLinkPage && (

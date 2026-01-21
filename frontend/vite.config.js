@@ -8,7 +8,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     middlewareMode: false,
-    allowedHosts: ['localhost', '127.0.0.1', 'saytruth-app', '172.18.0.4', 'saytruth.duckdns.org'],
+    allowedHosts: ['localhost', '127.0.0.1', 'saytruth.duckdns.org'],
     watch: {
       usePolling: true,
     },

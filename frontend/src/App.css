@@ -1,3 +1,12 @@
+.cards-skeleton .skeleton-card {
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 .app {
   min-height: 100vh;
   display: flex;

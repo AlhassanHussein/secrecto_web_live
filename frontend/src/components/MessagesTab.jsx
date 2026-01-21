@@ -8,7 +8,6 @@ const translations = {
         title: 'Anonymous messages',
         subtitle: 'Manage messages between inbox, public, and deleted.',
         tabs: { inbox: 'Inbox', public: 'Public', deleted: 'Deleted' },
-        helperInbox: 'Default inbox for incoming anonymous notes.',
         helperPublic: 'Public messages visible on your public profile.',
         helperDeleted: 'Soft-deleted messages (archived).',
         emptyTitle: 'No messages yet',
@@ -27,7 +26,6 @@ const translations = {
         title: 'رسائل مجهولة',
         subtitle: 'أدر الرسائل بين الوارد والعام والمحذوفة.',
         tabs: { inbox: 'الوارد', public: 'عام', deleted: 'محذوفة' },
-        helperInbox: 'صندوق الوارد الافتراضي للرسائل المجهولة.',
         helperPublic: 'رسائل عامة مرئية في ملفك العام.',
         helperDeleted: 'رسائل محذوفة بشكل مؤقت (مؤرشفة).',
         emptyTitle: 'لا توجد رسائل',
@@ -46,7 +44,6 @@ const translations = {
         title: 'Mensajes anónimos',
         subtitle: 'Gestiona mensajes entre bandeja, público y eliminado.',
         tabs: { inbox: 'Bandeja', public: 'Público', deleted: 'Eliminado' },
-        helperInbox: 'Bandeja principal para notas anónimas.',
         helperPublic: 'Mensajes públicos visibles en tu perfil.',
         helperDeleted: 'Mensajes eliminados suavemente (archivados).',
         emptyTitle: 'Aún no hay mensajes',
@@ -62,7 +59,7 @@ const translations = {
     },
 };
 
-const MessagesTab = () => {
+const MessagesTab = ({ isAuthenticated, onLoginClick, onSignupClick }) => {
     const [language, setLanguage] = useState('EN');
     const [activeTab, setActiveTab] = useState('inbox');
     const [messages, setMessages] = useState([]);
@@ -72,9 +69,15 @@ const MessagesTab = () => {
     const t = translations[language];
     const isRTL = language === 'AR';
 
-    // Load messages on mount
+    // Load messages on mount - ONLY if authenticated
     useEffect(() => {
         const fetchMessages = async () => {
+            // CRITICAL: Never call protected endpoints as guest
+            if (!isAuthenticated) {
+                setLoading(false);
+                return;
+            }
+
             try {
                 setLoading(true);
                 // Fetch grouped inbox data
@@ -102,7 +105,7 @@ const MessagesTab = () => {
         };
 
         fetchMessages();
-    }, []);
+    }, [isAuthenticated]); // Re-fetch when auth state changes
 
     const counts = useMemo(() => {
         return messages.reduce(
@@ -162,6 +165,40 @@ const MessagesTab = () => {
         updateMessageStatus(id, 'inbox');
     };
 
+    // GUEST MODE: Show locked UI instead of calling protected endpoints
+    if (!isAuthenticated) {
+        return (
+            <div className={`messages-tab ${isRTL ? 'rtl' : ''}`} style={{ padding: '1rem', maxWidth: '520px', margin: '0 auto' }}>
+                <section className="empty-state-card">
+                    <div className="empty-state-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                    </div>
+                    <h2 className="empty-state-title">Messages are locked</h2>
+                    <p className="empty-state-subtitle">
+                        Log in to access your inbox and manage private messages. Create an account to receive permanent messages and connect with others.
+                    </p>
+                    <div className="empty-state-actions">
+                        <button
+                            className="btn btn-primary"
+                            onClick={onLoginClick}
+                        >
+                            Log in
+                        </button>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={onSignupClick}
+                        >
+                            Sign up
+                        </button>
+                    </div>
+                </section>
+            </div>
+        );
+    }
+
     return (
         <div className={`messages-tab ${isRTL ? 'rtl' : ''}`}>
             <section className="messages-hero card">
@@ -173,39 +210,8 @@ const MessagesTab = () => {
                     </div>
                 </div>
 
-                <div className="hero-controls">
-                    <div className="language-toggle" aria-label="Language selector">
-                        {Object.keys(translations).map((lang) => (
-                            <button
-                                key={lang}
-                                className={`lang-pill ${language === lang ? 'active' : ''}`}
-                                onClick={() => setLanguage(lang)}
-                            >
-                                {lang}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="pill-row">
-                        <span className="pill ghost">{t.helperInbox}</span>
-                        <span className="pill ghost">{t.helperPublic}</span>
-                        <span className="pill ghost">{t.helperDeleted}</span>
-                    </div>
-                </div>
+              
 
-                <div className="stat-row">
-                    <div className="stat-card">
-                        <p className="stat-label">{t.tabs.inbox}</p>
-                        <p className="stat-value">{counts.inbox || 0}</p>
-                    </div>
-                    <div className="stat-card">
-                        <p className="stat-label">{t.tabs.public}</p>
-                        <p className="stat-value">{counts.public || 0}</p>
-                    </div>
-                    <div className="stat-card">
-                        <p className="stat-label">{t.tabs.deleted}</p>
-                        <p className="stat-value">{counts.deleted || 0}</p>
-                    </div>
-                </div>
             </section>
 
             <section className="page-tabs">

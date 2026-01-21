@@ -49,13 +49,19 @@ const apiRequest = async (endpoint, options = {}) => {
   // Ensure endpoint starts with a single leading slash
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
+  console.log(`API Request: ${options.method || 'GET'} ${API_BASE_URL}${normalizedEndpoint}`, { token: token ? 'present' : 'missing' });
+
   const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
     ...options,
     headers,
+    credentials: 'include', // Include cookies for session management
   });
+
+  console.log(`API Response: ${response.status}`, response.statusText);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+    console.error('API Error:', error);
     throw new Error(error.detail || `HTTP ${response.status}`);
   }
 
@@ -276,6 +282,16 @@ export const userAPI = {
     return apiRequest(`/api/users/unfollow/${userId}`, {
       method: 'DELETE',
     });
+  },
+
+  checkFollowStatus: async (userId) => {
+    // Must send auth token to check if the logged-in user follows this user
+    // If not authenticated, backend will return 401 or handle as guest
+    return apiRequest(`/api/users/${userId}/follow-status`);
+  },
+
+  getMyFollowing: async () => {
+    return apiRequest('/api/users/me/following');
   },
 
   getFollowing: async () => {

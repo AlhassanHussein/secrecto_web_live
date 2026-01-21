@@ -169,7 +169,7 @@ function App() {
           <PublicLinkPage publicId={linkId} language={language} />
           <div className="link-page-close">
             <button onClick={handleCloseLinkPage} className="btn secondary">
-              ← Back
+              ← Back f
             </button>
           </div>
         </div>
@@ -182,7 +182,7 @@ function App() {
           <PrivateLinkPage privateId={linkId} language={language} />
           <div className="link-page-close">
             <button onClick={handleCloseLinkPage} className="btn secondary">
-              ← Back
+              ← Back ff
             </button>
           </div>
         </div>
