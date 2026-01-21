@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.*.local
+.env_dev
+.env_prod
 
 # Logs
 logs
@@ -24,6 +26,9 @@ data/
 # Caddy cache
 caddy_data/
 caddy_config/
+Caddy/caddydev
+Caddy/caddyprod
+
 
 # Editor directories and files
 .vscode/*
