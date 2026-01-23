@@ -1,0 +1,52 @@
+name: Database CI Test
+
+on:
+  push:
+    branches: [ "test" ]
+    paths:
+      - 'database/**'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      # Checkout code from test branch
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      # Lowercase repo name for GHCR compatibility
+      - name: Lowercase the repo name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+
+      # Build database Docker image to verify Dockerfile
+      - name: Build Database Docker Image
+        run: docker build -t ghcr.io/${{ env.REPO_LC }}/database:test ./database
+
+      # Create PR to main if build succeeded (requires manual approval)
+      - name: Create PR to main
+        if: ${{ success() }}
+        id: create_pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Database build passed → Auto PR to main"
+          branch: test
+          base: main
+          title: "Auto PR: Database build passed"
+          body: |
+            ## Database Build Successful ✅
+            
+            This PR is auto-created because the database Docker build passed on the test branch.
+            
+            **Changes:** Database updates from test branch
+            **Action Required:** DevOps manual review and approval needed before merge
+          labels: database,auto-pr
+
+      # Log message if build failed
+      - name: Build Failed - No PR Created
+        if: ${{ failure() }}
+        run: echo "❌ Database Docker build failed → No PR created. Please fix the Dockerfile and try again."

@@ -1,5 +1,5 @@
 version: '3.9'
-#last updated: 2026-01-23
+
 services:
   # 1. Database Container (SQLite)
   # Stores all application data: users, messages, links, friends
@@ -24,9 +24,9 @@ services:
   # Provides REST API endpoints for auth, messages, links, users, friends
   # Connects to SQLite database mounted via volume
   saytruth-api:
-    
-    image: ${BACKEND_IMAGE:-ghcr.io/alhassanhussein/secrecto_web_live/backend:latest}
-      
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: saytruth-backend
     env_file:
       - .env

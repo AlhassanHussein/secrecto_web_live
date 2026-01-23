@@ -1,4 +1,4 @@
-name: Backend CI Test
+name: Backend CI/CD Test
 
 on:
   push:
@@ -7,38 +7,86 @@ on:
       - 'backend/**'
 
 jobs:
-  build-test:
+  build-and-verify:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write # Required for PR creation
+      pull-requests: write
+      security-events: write
+      packages: write # Required to push to GHCR
+
 
     steps:
+      # 1. Checkout the code
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Gets all branches so we can see 'main'
 
+      # 2. Dockerfile Linting 
+      # This checks if your Dockerfile follows security and size optimization rules
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ./backend/Dockerfile
+
+      # 3. Handle naming for GHCR
       - name: Lowercase the repo name
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+      # 4. Set Image Tag for Docker Image  
+      - name: Set Image Tag
+        run: |
+          echo "IMAGE_TAG=ghcr.io/${{ env.REPO_LC }}/backend:${{ github.sha }}" >> ${GITHUB_ENV}
+          echo "IMAGE_LATEST_TAG=ghcr.io/${{ env.REPO_LC }}/backend:latest" >> ${GITHUB_ENV}
+     
+      # 5. Build Docker Image
+      - name: Build 
+        run: |
+          docker build -t ${{ env.IMAGE_TAG }} ./backend
 
-      - name: Build Docker Image
-        run: docker build -t ghcr.io/${{ env.REPO_LC }}/backend:test ./backend
+      # 6. Security Vulnerability Scan (DevOps Responsibility)
+      # This scans the libraries inside your container for known hacks/vulnerabilities
+      - name: Run Trivy Security Scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: '${{ env.IMAGE_TAG }}'
+          format: 'table'
+          exit-code: '1' # This stops the pipeline if "Critical" bugs are found
+          severity: 'CRITICAL,HIGH'
+ 
+      # 7. Login to GitHub Container Registry
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # This step creates a Pull Request to merge 'test' into 'main'
+
+      # 8. Push Docker Image to GHCR
+      - name: Push
+        run: |
+          docker push ${{ env.IMAGE_TAG }}
+          docker push ${{ env.IMAGE_LATEST_TAG }}
+
+      # 9. Automated PR Creation
+      # Only triggers if Build, Lint, and Security Scan ALL pass
       - name: Create PR to main
         if: success()
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: test-sync-branch   # The action creates a temporary branch
-          base: main                 # We want to merge INTO main
-          title: "Sync Test to Main: Backend Build Passed"
-          body: "The backend build on the `test` branch was successful. This PR syncs those changes to `main`."
-          # If there are no file changes (e.g. only image build), it won't create a PR.
-          # To force a PR even if no files changed, we ensure a "sync" commit:
-          commit-message: "chore: sync test to main after successful build"
-
-      - name: Build Failed Notification
-        if: failure()
-        run: echo "Backend build failed. No PR will be created."
+          commit-message: "chore: backend build & security checks passed"
+          branch: auto-sync-test-main
+          base: main
+          title: "🚀 Production Ready: Backend Update"
+          body: |
+            ### Automated Quality Gate Report ✅
+            The following checks passed on the `test` branch:
+            - [x] **Dockerfile Linting:** Optimized and secure.
+            - [x] **Docker Build:** Image built successfully.
+            - [x] **Security Scan:** No High or Critical vulnerabilities found.
+            The image `${{ env.IMAGE_TAG }}` passed all checks.
+ 
+            *This PR was generated automatically by the DevOps Pipeline.*
+          labels: |
+            automated
+            security-verified
