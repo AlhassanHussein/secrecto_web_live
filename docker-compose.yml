@@ -1,5 +1,5 @@
 version: '3.9'
-
+#last updated: 2026-01-23
 services:
   # 1. Database Container (SQLite)
   # Stores all application data: users, messages, links, friends
