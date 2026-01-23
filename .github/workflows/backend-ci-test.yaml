@@ -1,0 +1,47 @@
+name: Backend CI Test
+
+on:
+  push:
+    branches: [ "test" ]
+    paths:
+      - 'backend/**'
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    # GitHub Container Registry permissions for pushing images
+    permissions:
+      contents: write
+ 
+
+    steps:
+      #  Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      # Lowercase repo name for GHCR
+      - name: Lowercase the repo name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+      #  Build backend image (test tag)
+      - name: Build Docker Image
+        run: docker build -t ghcr.io/${{ env.REPO_LC }}/backend:test ./backend
+
+   
+    
+
+      # 4️⃣ Create PR to main if tests passed
+      - name: Create PR to main
+        if: ${{ success() }}
+        id: create_pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Backend build passed → Auto PR to main"
+          branch: test
+          base: main
+          title: "Auto PR: Backend build passed"
+          body: "This PR is auto-created because all backend builds passed on test branch"
+      #  No PR created if build failed
+      - name: No PR created
+        if: ${{ failure() }}
+        run: echo "Backend builds failed → No PR created"
+

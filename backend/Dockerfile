@@ -4,10 +4,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app/backend
-#  Install system dependencies
-#   Copy the requirements file
+
 COPY requirements.txt ./
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apt update && apt install -y curl && rm -rf /var/lib/apt/lists/*
 #  Copy the application code
