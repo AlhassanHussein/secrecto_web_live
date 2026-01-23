@@ -1,318 +1,409 @@
-# SayTruth - Anonymous Truth-Telling Platform
+```markdown
+# Secreto Web Live — System README
 
-A modern web application for anonymous messaging, temporary links, and private communication built with React (Vite) frontend and FastAPI backend.
+Last updated: 2026-01-23
 
-**Status:** ✅ Production-Ready with Enterprise-Grade Infrastructure
+This repository contains a production-ready full-stack web system composed of:
+- Frontend application (single-page application)
+- Backend API built with FastAPI
+- Relational database service (PostgreSQL recommended)
+- Caddy reverse proxy for TLS, routing and static file serving
+- Docker & Docker Compose infrastructure for local development and production deployment
 
-## 🚀 Quick Start
+This README explains architecture, responsibilities of each service, how services communicate, networking and ports, environment variables, run instructions, request flow, folder layout and notes intended for human developers and AI agents.
 
-### Prerequisites
-- Docker and Docker Compose installed
-- 2GB RAM minimum, 5GB disk space
+---
 
-### 1. Setup Environment
+## 1. Project Overview
+
+Secreto Web Live is a modular, microservice-style full-stack web application. The frontend is responsible for UI/UX and calling the backend API. The backend is a FastAPI service that implements the business logic, authentication, validation, and persistence. Data is stored in a relational database (Postgres). Caddy acts as the edge reverse-proxy, handling TLS termination, static assets, routing and proxying requests to the frontend or backend as appropriate.
+
+The system is containerized using Docker and composed with Docker Compose for reproducible environments and easy deployment.
+
+Goals:
+- Clear separation of concerns (UI / API / Data / Proxy)
+- Production-grade defaults (TLS, reverse proxy, volumes)
+- Developer-friendly local workflow (single docker-compose command)
+- Machine-readable organization for AI agents
+
+---
+
+## 2. System Architecture Explanation
+
+High-level components:
+- Client (browser or mobile): interacts with the system over HTTPS.
+- Caddy (reverse proxy): edge component that receives incoming traffic, serves static files from the frontend build when appropriate, and proxies API calls to the backend. Provides TLS (Let's Encrypt or certificates provided via volume).
+- Frontend app: single-page application (SPA) built with modern JS frameworks (e.g., React/Vue/Svelte). It is built into static assets and served either by Caddy or by a dedicated container that provides static hosting.
+- Backend API (FastAPI): REST (and/or WebSocket) API that performs application logic and JSON responses. Runs with ASGI server (uvicorn/gunicorn+uvicorn workers).
+- Database (PostgreSQL): stores persistent data. Exposes a port only to the internal Docker network. Backups and migrations are part of the deployment process.
+
+Deployment model:
+- Container-based microservices on a single host (or orchestrated cluster), with Docker Compose for multi-container orchestration.
+- Caddy exposes ports 80/443 to the world; internal services communicate on an isolated overlay network.
+
+Example runtime technologies:
+- Frontend: Node.js build toolchain, static assets
+- Backend: Python 3.10+, FastAPI, Pydantic, SQLAlchemy or equivalent, Alembic for migrations
+- Database: PostgreSQL 14+
+- Reverse proxy: Caddy 2.x
+
+---
+
+## 3. Services Description
+
+Service: frontend
+- Purpose: Present UI, handle client-side routing, user interactions, authentication flows (e.g., token storage), and call backend API endpoints.
+- Responsibilities:
+  - Build step produces static files (HTML/CSS/JS).
+  - Optionally do Server Side Rendering (SSR) depending on framework (this doc assumes SPA static build).
+  - Provide health endpoints (if running as a server) or rely on Caddy health checks.
+- Typical ports: internal 3000 or 80 for static server — not exposed to the public if Caddy serves build.
+
+Service: backend (FastAPI)
+- Purpose: Provide JSON REST API, implement business rules, authentication, authorization, and orchestrate database operations.
+- Responsibilities:
+  - Expose HTTP API (e.g., /api/*) and optionally WebSocket endpoints.
+  - Validate requests with Pydantic.
+  - Interact with the database via an ORM or raw SQL.
+  - Run database migrations on deploy (via Alembic or similar).
+  - Log structured JSON for observability.
+- Typical internal port: 8000 (uvicorn)
+
+Service: database (PostgreSQL)
+- Purpose: Durable storage of application state, relational data integrity, transactions.
+- Responsibilities:
+  - Store tables, indices, and migrations.
+  - Provide backups and restore procedures.
+  - Limit public exposure — available only on internal network for security.
+- Typical port: 5432 (internal)
+
+Service: caddy (reverse proxy)
+- Purpose: Edge router that provides TLS termination, static file serving, HTTP->HTTPS redirects, and reverse-proxying to backend.
+- Responsibilities:
+  - Route requests to frontend or backend by path or hostname.
+  - Automate TLS via ACME (Let's Encrypt) or use mounted certificates (production).
+  - Provide centralized access and rate limiting, basic logging, and header manipulation.
+- Typical exposed ports: 80 (HTTP), 443 (HTTPS)
+
+---
+
+## 4. How services communicate with each other
+
+- Client (browser) <-> Caddy: all inbound HTTP/HTTPS traffic terminates at Caddy. Caddy enforces TLS and routing rules.
+- Caddy -> Frontend: either serves static files (direct filesystem) or proxies to a frontend server container. Example: requests for `GET /` and `GET /static/*`.
+- Caddy -> Backend: proxies API requests to the backend container (e.g., any route matching `/api/*` or a subdomain).
+- Backend -> Database: backend connects to the database using private network hostnames and credentials (no public exposure).
+- Optional internal services (e.g., job workers, admin containers) connect to the backend or database via the same Docker network.
+
+Communication details:
+- All inter-service traffic takes place over the Docker Compose defined network (bridge/overlay).
+- Caddy uses service names (as DNS) to reach containers (e.g., `http://backend:8000`).
+- Services authenticate and authorize at the application layer (JWT/OAuth/session tokens); transport security within the internal network is optional as traffic remains internal — but mutual TLS or service mesh can be added for stricter security.
+
+---
+
+## 5. Networking and ports explanation
+
+Public-facing:
+- 80/tcp (HTTP) — Caddy listens and redirects to HTTPS (production)
+- 443/tcp (HTTPS) — Caddy listens for TLS traffic
+
+Internal Docker network:
+- backend:8000 — uvicorn/gunicorn serving FastAPI (NOT exposed publicly)
+- db:5432 — PostgreSQL (NOT exposed publicly)
+- frontend (if served by an app server): 3000 or 80 internally; otherwise static files served by Caddy directly.
+
+Docker-compose networking:
+- Compose creates an isolated network (default) where services can reference each other by service name. Example DNS:
+  - `http://backend:8000`
+  - `postgres://db:5432/dbname`
+
+Port mapping example in docker-compose.yml:
+- caddy: "80:80", "443:443"
+- backend: no published ports (if strictly internal) or "8000:8000" for dev convenience
+- db: no published ports (for local dev you might publish 5432:5432)
+
+Production recommendation:
+- Only Caddy should have public ports mapped. Backend and DB should remain internal.
+
+---
+
+## 6. Environment variables concept
+
+Environment variables are used to configure services at runtime without changing code. They are critical for 12-factor apps and support differing environments (development, staging, production).
+
+Common variables example:
+- Backend:
+  - DATABASE_URL=postgresql://USER:PASSWORD@db:5432/DBNAME
+  - SECRET_KEY=... (used by auth/session signing)
+  - ENVIRONMENT=production|staging|development
+  - LOG_LEVEL=info|debug
+  - CORS_ORIGINS=https://example.com,https://api.example.com
+- Database:
+  - POSTGRES_USER
+  - POSTGRES_PASSWORD
+  - POSTGRES_DB
+- Caddy:
+  - ACME_AGREE (or mount certificates) or use environment variables to set admin credentials if needed
+- Frontend (build-time or runtime):
+  - VITE_API_URL or REACT_APP_API_URL to point to proxied API origin (e.g., https://example.com/api)
+
+Best practices:
+- Store secrets in a secure secrets manager (Vault, AWS Secrets Manager, Docker secrets, or environment-specific secure stores).
+- Do NOT commit .env files with secrets to source control.
+- Provide a `.env.example` with only variable names and example placeholders for onboarding.
+- When using Docker Compose, use the env_file option or pass variables via CI/CD pipelines.
+
+Example `.env.example` snippet:
+```env
+# Backend
+DATABASE_URL=postgresql://postgres:changeme@db:5432/secreto
+SECRET_KEY=replace_with_a_secure_random_value
+ENVIRONMENT=development
+LOG_LEVEL=debug
+
+# Caddy
+CADDY_EMAIL=admin@example.com
+
+# Frontend build
+FRONTEND_API_BASE_URL=https://localhost/api
+```
+
+---
+
+## 7. How to run the project using Docker Compose
+
+Prerequisites:
+- Docker (>=20.10)
+- Docker Compose (v2 recommended) or Docker Desktop
+- (Optional) Git for cloning repo
+
+1. Clone repository:
 ```bash
-# Clone repository
-git clone <your-repo>
-cd saytruth
+git clone https://github.com/AlhassanHussein/secrecto_web_live.git
+cd secreto_web_live
+```
 
-# Create .env file with configuration
+2. Copy `.env.example` to `.env` and fill secrets:
+```bash
 cp .env.example .env
-
-# Generate secure keys
-export JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
-export ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-
-# Update .env with your values
-sed -i "s/JWT_SECRET=.*/JWT_SECRET=$JWT_SECRET/" .env
-sed -i "s/ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$ENCRYPTION_KEY/" .env
+# edit .env and fill values (DATABASE_URL, SECRET_KEY, CADDY_EMAIL, etc.)
 ```
 
-### 2. Validate Setup
-```bash
-bash setup.sh
-```
-
-This verifies:
-- ✅ .env configuration
-- ✅ Encryption keys valid
-- ✅ Docker installed
-- ✅ All required variables set
-
-### 3. Start All Services
-```bash
-docker-compose up -d
-```
-
-Services start in order:
-1. **Database** (SQLite) - /data/app.db
-2. **Backend API** (FastAPI) - :8000
-3. **Frontend** (React + Vite) - :5173
-4. **Nginx** (Internal routing) - :80 (internal)
-5. **Caddy** (HTTPS proxy) - :80, :443
-
-### 4. Access Application
-```bash
-# Add to /etc/hosts (Linux/Mac)
-echo "127.0.0.1 saytruth.local" >> /etc/hosts
-
-# Access via HTTPS
-https://saytruth.local/
-
-# API documentation
-https://saytruth.local/api/docs
-
-# Health check
-curl -k https://saytruth.local/health
-```
-
-## � Documentation
-
-Comprehensive documentation for the SayTruth platform:
-
-| Document | Purpose |
-|----------|---------|
-| **[INFRASTRUCTURE.md](INFRASTRUCTURE.md)** | Complete infrastructure setup guide, deployment instructions, troubleshooting |
-| **[SECURITY_AUDIT.md](SECURITY_AUDIT.md)** | Security review, threat assessment, compliance verification |
-| **[LINK_SYSTEM_IMPLEMENTATION_SUMMARY.md](LINK_SYSTEM_IMPLEMENTATION_SUMMARY.md)** | Temporary anonymous links system documentation |
-| **[README_INBOX_SYSTEM.md](README_INBOX_SYSTEM.md)** | Inbox system architecture and features |
-
-## 🔐 Security Features
-
-✅ **HTTPS/TLS** - Automatic certificate generation via Caddy  
-✅ **Message Encryption** - Fernet symmetric encryption at rest  
-✅ **Rate Limiting** - Per-IP protection (60 req/min general, 20 req/hr auth)  
-✅ **Network Isolation** - Services in private bridge network  
-✅ **Security Headers** - HSTS, X-Frame-Options, CSP, etc.  
-✅ **Secrets Management** - All configuration via .env (never in code)  
-✅ **Database Security** - Encrypted messages, restricted access  
-
-## 🚀 Infrastructure Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│  INTERNET (HTTPS via Caddy - ports 80/443)  │
-└──────────────────┬──────────────────────────┘
-                   ▼
-          ┌─────────────────┐
-          │     CADDY       │ HTTPS/TLS + Security Headers
-          │ Reverse Proxy   │ Domain: $DOMAIN
-          │  :80, :443      │ Auto-HTTPS/Self-signed
-          └────────┬────────┘
-                   ▼ (HTTP port 80, internal)
-          ┌─────────────────┐
-          │     NGINX       │ Internal Routing
-          │ :80 (internal)  │ /api/ → backend
-          └────┬────────┬───┘ / → frontend
-               │        │
-         /api/ │        │ /
-              ▼        ▼
-         ┌───────┐ ┌────────┐
-         │FastAPI│ │ React  │
-         │:8000  │ │:5173   │
-         └───┬───┘ └────────┘
-             │
-             ▼
-         ┌──────────┐
-         │ SQLite   │
-         │/data/    │
-         │app.db    │
-         └──────────┘
-```
-
-## 📦 Services Overview
-
-### Frontend Container (saytruth-app)
-- **Tech**: React 18 + Vite
-- **Port**: 5173 (internal)
-- **Features**: 
-  - Home, Links, Search, Messages, Profile tabs
-  - Multi-language support (EN, AR, ES)
-  - Guest mode and authenticated mode
-  - Mobile-first responsive design
-
-### Backend Container (saytruth-api)
-- **Tech**: Python 3.11 + FastAPI
-- **Port**: 8000 (internal)
-- **Features**:
-  - JWT authentication
-  - REST API endpoints
-  - SQLite database integration
-  - Message encryption (Fernet)
-  - Anonymous link system
-
-### Caddy (Reverse Proxy)
-- **Tech**: Caddy (Alpine Linux)
-- **Ports**: 80, 443 (public)
-- **Features**:
-  - HTTPS/TLS termination
-  - Automatic certificate generation
-  - Security headers
-  - Gzip compression
-
-### Nginx (Internal Router)
-- **Tech**: Nginx (Alpine Linux)
-- **Port**: 80 (internal only)
-- **Features**:
-  - Internal service routing
-  - Rate limiting per IP
-  - Load balancing
-  - Security headers
-
-### Database Container (saytruth-db)
-- **Tech**: SQLite
-- **Path**: /data/app.db
-- **Features**: 
-  - Persistent volume mount
-  - Health checks enabled
-  - No external access
-
-
-## 🗄️ Database Schema
-
-### Tables
-- **Users**: id, username, secret_phrase (hashed), created_at
-- **Messages**: id, receiver_id, content, status (inbox/public/favorite), created_at
-- **Links**: id, temporary_name, public_link, private_link, expiration_time
-- **Friends**: id, user_id, friend_id, created_at
-
-## 🔌 API Endpoints
-
-### Authentication
-- `POST /api/auth/signup` - Create new account
-- `POST /api/auth/login` - Login and get JWT token
-- `GET /api/auth/me` - Get current user info
-
-### Messages
-- `GET /api/messages/` - Get user messages (auth required)
-- `POST /api/messages/send` - Send anonymous message
-- `PATCH /api/messages/{id}/status` - Update message status
-- `DELETE /api/messages/{id}` - Delete message
-
-### Links
-- `GET /api/links/` - List all active links
-- `POST /api/links/create` - Create temporary link
-- `GET /api/links/get/{id}` - Get specific link
-
-### Users & Friends
-- `POST /api/users/search` - Search users by username
-- `POST /api/users/friends/add` - Add friend
-- `GET /api/users/friends` - Get friends list
-
-## 🛠️ Development
-
-### Run Individual Services
-
-```bash
-# Backend only
-docker compose up saytruth-api
-
-# Frontend only
-docker compose up saytruth-app
-
-# Database only
-docker compose up saytruth-db
-```
-
-### View Logs
-```bash
-docker compose logs -f saytruth-api
-docker compose logs -f saytruth-app
-```
-
-### Stop Services
-```bash
-docker compose down
-```
-
-### Rebuild After Changes
+3. Build and start containers (development):
 ```bash
 docker compose up --build
+# or in detached mode:
+docker compose up -d --build
 ```
 
-## 🔄 Switching to PostgreSQL
-
-To migrate from SQLite to PostgreSQL:
-
-1. Update `.env`:
-```env
-DATABASE_URL=postgresql+psycopg2://user:password@postgres:5432/saytruth
+4. Run migrations (backend):
+- If migrations are run automatically by the backend container on startup, nothing further is needed.
+- Otherwise run a one-off migrations command:
+```bash
+docker compose run --rm backend alembic upgrade head
+# or
+docker compose exec backend alembic upgrade head
 ```
 
-2. Add PostgreSQL service to `docker-compose.yml`:
+5. View logs:
+```bash
+docker compose logs -f caddy backend frontend db
+```
+
+6. Stop and remove containers:
+```bash
+docker compose down --volumes --remove-orphans
+```
+
+Production notes:
+- Use the `--env-file` flag to point to secure env files in CI/CD.
+- Consider using `docker compose -f docker-compose.prod.yml` with production settings (no bind mounts, proper volumes, enforced secrets).
+- Use a process manager (systemd, docker swarm, k8s) for high availability.
+
+---
+
+## 8. Request flow: user → proxy → frontend/backend → database
+
+Step-by-step flow for a typical request:
+
+1. User (browser) navigates to https://example.com.
+2. DNS resolves to the public IP of the host where Caddy is running.
+3. Browser sends HTTPS request to port 443.
+4. Caddy (reverse proxy) receives the request:
+   - If the path corresponds to static assets (e.g., /, /index.html, /static/*), Caddy serves the built frontend files from its mounted `public/` or `frontend/dist/` folder.
+   - If the path matches the API route pattern (e.g., /api/*), Caddy proxies the request to the backend service (e.g., `http://backend:8000`).
+5. Backend (FastAPI) receives proxied request from Caddy:
+   - Validates request and authentication (JWT, cookies, etc).
+   - Performs business logic and interacts with the database.
+6. Backend executes queries against PostgreSQL via a DB client/ORM (SQLAlchemy).
+7. PostgreSQL performs the queries and returns results to the backend.
+8. Backend constructs an HTTP response and returns it to Caddy.
+9. Caddy forwards the response back to the browser over TLS.
+10. Browser receives and renders the response (for API calls the frontend updates UI accordingly).
+
+Error handling and retries:
+- Caddy can be configured for health checks and upstream retries.
+- Backend should return appropriate HTTP error codes and JSON error payloads for predictable client handling.
+
+---
+
+## 9. Folder structure overview
+
+Below is a recommended canonical layout for clarity. The actual repo may differ slightly, but this shows the intended responsibilities of each folder.
+
+```
+/
+├─ .env.example                # example environment variables (do not commit secrets)
+├─ docker-compose.yml          # primary compose file for development
+├─ docker-compose.prod.yml     # optional production compose with different volumes, secrets, replicas
+├─ Caddyfile                   # Caddy configuration file (or caddy/Caddyfile)
+├─ README.md                   # this file
+├─ infra/                      # infra helpers (Dockerfiles, k8s manifests, ingress templates)
+│  ├─ Dockerfile.frontend
+│  ├─ Dockerfile.backend
+│  └─ healthchecks/
+├─ frontend/                   # frontend source code (SPA)
+│  ├─ package.json
+│  ├─ src/
+│  └─ public/ or dist/         # build artifacts (generated)
+├─ backend/                    # FastAPI application code
+│  ├─ app/
+│  │  ├─ main.py               # ASGI entrypoint
+│  │  ├─ api/                  # routers and endpoints
+│  │  ├─ core/                 # settings, security, logging
+│  │  ├─ models/               # ORM models
+│  │  ├─ db/                   # database session, migrations
+│  │  └─ tests/
+│  ├─ requirements.txt
+│  └─ alembic/                 # migrations if using Alembic
+├─ caddy/                      # caddy config, TLS assets, optional templates
+│  └─ Caddyfile
+└─ scripts/                    # helpers: build, migrate, backup, restore
+```
+
+Key notes:
+- Keep build artifacts out of the repository (use .gitignore).
+- Dockerfiles live in infra/ or at project root; docker-compose references them.
+- Keep migrations and schema evolution in a dedicated folder (alembic/).
+- Include CI/CD config in `.github/workflows/` for automated builds, tests and deployment.
+
+---
+
+## 10. Notes for AI agents (how the system is organized)
+
+This section is explicitly for an AI agent analyzing the repository and producing code changes, diagnostics, or suggestions.
+
+- Top-level responsibilities:
+  - `frontend/`: UI code. Build process produces static assets consumed by `caddy` or served by a lightweight static server.
+  - `backend/`: FastAPI application. This is the authoritative place for domain logic. Look for `app/main.py`, `app/api`, and `app/core/settings.py` for runtime configuration.
+  - `db` service: Database configuration is typically controlled via `DATABASE_URL` in env vars. Connection pooling and migrations usually live inside `backend/db` or `backend/alembic`.
+  - `caddy`: Routing and TLS. The `Caddyfile` contains essential routing rules. For changes to public routes, edit the `Caddyfile`.
+  - `docker-compose.yml`: Coordinates service definitions and volumes. This file is critical for reproduction and local testing.
+  - `infra/Dockerfile.*`: Build rules for each container. Use these to change base images, add dependencies, or tune startup commands.
+
+- Where to look first for common tasks:
+  - Run the app locally: `docker compose up --build`
+  - Add an API endpoint: modify `backend/app/api/routers` and update `backend/app/main.py`
+  - Database migrations: update models in `backend/app/models`, then create a migration in `backend/alembic/versions` and run Alembic.
+  - Caddy routing: edit `caddy/Caddyfile`. For API routing, ensure `reverse_proxy /api/* backend:8000` exists.
+  - Environment variables: search for `os.getenv`, Pydantic `BaseSettings` classes or a `settings.py` within `backend` to identify required variables.
+
+- Useful heuristics for an AI:
+  - Service names in docker-compose are reliable DNS names inside the Docker network.
+  - Prefer reading `backend/app/core/settings.py` (or equivalent) to infer required runtime environment variables and defaults.
+  - Look for `uvicorn` or `gunicorn` command in Dockerfile/CMD to find the app's exposed port.
+  - If a `Caddyfile` is present, follow it for production routing semantics and to determine which routes map to which services.
+  - Database connection strings are often in `DATABASE_URL` — search for env var references to confirm variable names.
+
+- Typical endpoints and patterns to expect:
+  - `/health` or `/healthz` health-check endpoints
+  - `/api/v1/*` versioned API namespace
+  - `/static/*` serving SPA assets
+  - Authentication endpoints: `/auth/login`, `/auth/register`, JWT token issuance endpoints
+
+- Security & devops tips for automation agents:
+  - Do not introduce secrets into checked-in files. Use placeholders and instruct maintainers to use secret managers.
+  - When proposing changes that affect ports, services, or TLS, update the `Caddyfile` and `docker-compose` in lockstep.
+  - For database schema changes, generate and include migration files and add a migration step to CI/CD.
+  - Provide health checks and liveness/readiness metadata for each service to ease orchestration.
+
+---
+
+## Appendices
+
+A. Example minimal Caddyfile
+```text
+# caddy/Caddyfile
+example.com {
+  encode gzip zstd
+  root * /srv/frontend
+  file_server
+
+  # Proxy API requests to backend
+  handle /api/* {
+    reverse_proxy backend:8000
+  }
+
+  # Redirect HTTP -> HTTPS handled by Caddy automatically
+}
+```
+
+B. Example docker-compose (conceptual snippet)
 ```yaml
+version: "3.8"
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: saytruth
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - ./frontend/dist:/srv/frontend:ro
     networks:
-      - saytruth-network
+      - secreto_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../infra/Dockerfile.backend
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - db
+    networks:
+      - secreto_net
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - secreto_net
 
 volumes:
-  postgres_data:
+  caddy_data:
+  db_data:
+
+networks:
+  secreto_net:
+    driver: bridge
 ```
 
-3. Update backend dependencies in `backend/requirements.txt`:
+C. Operational checklist
+- Ensure `.env` is configured and secrets are available for production.
+- Run DB backups regularly and test restores.
+- Set up monitoring/log aggregation (Prometheus, Loki, Grafana).
+- Use CI to run tests, build images, run migrations and push images to a registry.
+- Rotate keys and certs and use a secret manager for production secrets.
+
+---
+
 ```
-psycopg2-binary==2.9.9
-```
-
-4. Rebuild and restart:
-```bash
-docker compose down
-docker compose up --build
-```
-
-## 🌐 Environment Variables
-
-See `.env.example` for all available options:
-
-- `JWT_SECRET` - Secret key for JWT token signing
-- `FRONTEND_URL` - CORS allowed origin
-- `DATABASE_URL` - Database connection string
-- `ACCESS_TOKEN_EXPIRE_MINUTES` - Token expiration time
-
-## 📱 Features
-
-### Guest Mode
-- Send anonymous messages
-- Create temporary links
-- Search users
-- No registration required
-
-### User Mode (Login/Signup)
-- Persistent message inbox
-- Manage link history
-- Add friends
-- Status updates (inbox/public/favorite)
-
-## 🎨 Frontend Pages
-
-- **Home**: Create temporary links, view active links
-- **Links**: Manage all links with countdown timers
-- **Search**: Find users and add friends
-- **Messages**: Inbox with status filtering
-- **Profile**: User settings, logout, friends list
-
-## 🔒 Security Notes
-
-⚠️ **For Production:**
-1. Change `JWT_SECRET` in `.env`
-2. Update CORS origins in backend
-3. Use HTTPS/TLS
-4. Switch to PostgreSQL
-5. Enable rate limiting
-6. Add input validation
-
-## 📝 License
-
-MIT License - feel free to use for your projects!
-
-## 🤝 Contributing
-
-Pull requests welcome! Please test with Docker Compose before submitting.
