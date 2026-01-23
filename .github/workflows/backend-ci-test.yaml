@@ -28,21 +28,16 @@ jobs:
 
    
     
-
-      # 4️⃣ Create PR to main if tests passed
-      - name: Create PR to main
+  # Merge test into main automatically
+      - name: Merge test into main
         if: ${{ success() }}
-        id: create_pr
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Backend build passed → Auto PR to main"
-          branch: test
-          base: main
-          title: "Auto PR: Backend build passed"
-          body: "This PR is auto-created because all backend builds passed on test branch"
-      #  No PR created if build failed
-      - name: No PR created
-        if: ${{ failure() }}
-        run: echo "Backend builds failed → No PR created"
-
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git fetch origin main
+          git checkout main
+          git merge origin/test --no-ff -m "Auto merge test → main (build passed)"
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
