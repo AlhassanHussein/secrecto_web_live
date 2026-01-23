@@ -1,0 +1,26 @@
+name: Build and Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Build Backend Docker Image
+        run: |
+          cd backend
+          docker build -t saytruth-backend .
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Build Frontend Docker Image
+        run: |
+          cd frontend
+          docker build -t saytruth-frontend .
+          
+       
