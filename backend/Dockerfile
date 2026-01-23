@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app/backend
 
 COPY requirements.txt ./
-
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 #  Copy the application code
