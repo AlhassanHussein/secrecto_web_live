@@ -1,10 +1,10 @@
-name: Backend CI Test
+name: Frontend CI Test
 
 on:
   push:
     branches: [ "test" ]
     paths:
-      - 'backend/**'
+      - 'frontend/**'
 
 jobs:
   build-test:
@@ -22,9 +22,9 @@ jobs:
       - name: Lowercase the repo name
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
 
-      # Build backend Docker image to verify Dockerfile
-      - name: Build Backend Docker Image
-        run: docker build -t ghcr.io/${{ env.REPO_LC }}/backend:test ./backend
+      # Build frontend Docker image to verify Dockerfile
+      - name: Build Frontend Docker Image
+        run: docker build -t ghcr.io/${{ env.REPO_LC }}/frontend:test ./frontend
 
       # Create PR to main if build succeeded (requires manual approval)
       - name: Create PR to main
@@ -33,21 +33,20 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Backend build passed → Auto PR to main"
+          commit-message: "Frontend build passed → Auto PR to main"
           branch: test
           base: main
-          title: "Auto PR: Backend build passed"
+          title: "Auto PR: Frontend build passed"
           body: |
-            ## Backend Build Successful ✅
+            ## Frontend Build Successful ✅
             
-            This PR is auto-created because the backend Docker build passed on the test branch.
+            This PR is auto-created because the frontend Docker build passed on the test branch.
             
-            **Changes:** Backend updates from test branch
+            **Changes:** Frontend updates from test branch
             **Action Required:** DevOps manual review and approval needed before merge
-          labels: backend,auto-pr
+          labels: frontend,auto-pr
 
       # Log message if build failed
       - name: Build Failed - No PR Created
         if: ${{ failure() }}
-        run: echo "❌ Backend Docker build failed → No PR created. Please fix the Dockerfile and try again."
-
+        run: echo "❌ Frontend Docker build failed → No PR created. Please fix the Dockerfile and try again."

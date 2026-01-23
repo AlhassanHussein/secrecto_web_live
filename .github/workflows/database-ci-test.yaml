@@ -1,10 +1,10 @@
-name: Backend CI Test
+name: Database CI Test
 
 on:
   push:
     branches: [ "test" ]
     paths:
-      - 'backend/**'
+      - 'database/**'
 
 jobs:
   build-test:
@@ -22,9 +22,9 @@ jobs:
       - name: Lowercase the repo name
         run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
 
-      # Build backend Docker image to verify Dockerfile
-      - name: Build Backend Docker Image
-        run: docker build -t ghcr.io/${{ env.REPO_LC }}/backend:test ./backend
+      # Build database Docker image to verify Dockerfile
+      - name: Build Database Docker Image
+        run: docker build -t ghcr.io/${{ env.REPO_LC }}/database:test ./database
 
       # Create PR to main if build succeeded (requires manual approval)
       - name: Create PR to main
@@ -33,21 +33,20 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Backend build passed → Auto PR to main"
+          commit-message: "Database build passed → Auto PR to main"
           branch: test
           base: main
-          title: "Auto PR: Backend build passed"
+          title: "Auto PR: Database build passed"
           body: |
-            ## Backend Build Successful ✅
+            ## Database Build Successful ✅
             
-            This PR is auto-created because the backend Docker build passed on the test branch.
+            This PR is auto-created because the database Docker build passed on the test branch.
             
-            **Changes:** Backend updates from test branch
+            **Changes:** Database updates from test branch
             **Action Required:** DevOps manual review and approval needed before merge
-          labels: backend,auto-pr
+          labels: database,auto-pr
 
       # Log message if build failed
       - name: Build Failed - No PR Created
         if: ${{ failure() }}
-        run: echo "❌ Backend Docker build failed → No PR created. Please fix the Dockerfile and try again."
-
+        run: echo "❌ Database Docker build failed → No PR created. Please fix the Dockerfile and try again."
