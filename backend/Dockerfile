@@ -10,7 +10,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN apt update && apt install -y curl && rm -rf /var/lib/apt/lists/*
 #  Copy the application code
 COPY app ./app
-# Expose port 8000 for the FastAPI application
 EXPOSE 8000
-#  Start the FastAPI application with Uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
