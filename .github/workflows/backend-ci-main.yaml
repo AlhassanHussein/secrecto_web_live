@@ -15,36 +15,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6.0.2
 
+      # 3. Handle naming for GHCR
+      - name: Lowercase the repo name
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+   
+
       # Deploy to EC2 via SSH
-      - name: Deploy Backend to EC2
+      - name: Deploy Backend to EC2 via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: REPO_LC 
           script: |
-            echo "🚀 Starting Backend Deployment..."
+            echo "🚀 Starting Deployment..."
+
+            # 1. Login to GHCR
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Navigate to project directory
+            # 2. Navigate to project and update docker-compose file
             cd ${{ secrets.EC2_PROJECT_PATH }}
-            
-            # Pull latest code from main branch
-            echo "📥 Pulling latest code from main..."
             git pull origin main
             
-            # Copy docker-compose.yml (ensure it's updated)
-            echo "📋 Docker-compose.yml updated"
+            # 3. Pull the PRE-BUILT image from GHCR
+            # This is much faster than building!
+            docker pull ghcr.io/${{ env.REPO_LC }}/backend:latest 
             
-            # Build backend service
-            echo "🔨 Building backend Docker image..."
-            docker-compose build backend
-            
-            # Restart backend service
-            echo "♻️ Restarting backend service..."
+            # 4. Restart the service using the new image
+            # We export the variable so docker-compose.yml can see it
+            export BACKEND_IMAGE="ghcr.io/${{ env.REPO_LC }}/backend:latest"
             docker-compose up -d backend
             
-            # Clean up unused images
-            echo "🧹 Cleaning up unused Docker images..."
-            docker image prune -f
+            # 5. Clean up old images to save disk space
+            docker image prune -f           
             
             echo "✅ Backend deployment completed successfully!"
