@@ -5,11 +5,10 @@ on:
     branches: [ "test" ]
     paths:
       - 'backend/**'
-      - '.github/workflows/backend-ci-test.yaml'
 jobs:
   build-test:
     runs-on: ubuntu-latest
-
+    # GitHub Container Registry permissions for pushing images
     permissions:
       contents: write
  
