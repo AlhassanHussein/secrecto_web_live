@@ -11,18 +11,15 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
-      packages: write
+      contents: write
+ 
 
     steps:
       #  Checkout code
       - name: Checkout code
         uses: actions/checkout@v6.0.2
 
-      #  Log in to GitHub Container Registry
-      - name: Log in to GHCR
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
+     
       #  Build backend image (test tag)
       - name: Build Backend Image
         run: docker build -t ghcr.io/${{ github.repository }}/backend:test ./backend
