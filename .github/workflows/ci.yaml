@@ -2,7 +2,7 @@ name: Build and Test
 on:
   push:
     branches:
-      - main
+      - test
   pull_request:
 
 jobs:
@@ -22,5 +22,5 @@ jobs:
         run: |
           cd frontend
           docker build -t saytruth-frontend .
-          
+
        
