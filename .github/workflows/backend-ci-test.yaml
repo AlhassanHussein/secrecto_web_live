@@ -77,7 +77,7 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
           commit-message: "chore: backend build & security checks passed"
-          branch: auto-sync-test-main
+          branch: auto-sync-from-test-to-main
           base: main
           title: "🚀 Production Ready: Backend Update"
           body: |

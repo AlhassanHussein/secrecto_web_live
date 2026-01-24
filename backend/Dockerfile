@@ -26,7 +26,8 @@ COPY --chown=appuser:appuser app ./app
 USER appuser
 
 EXPOSE 8000
-# Add a health check to monitor the application status  
+
+
 HEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
