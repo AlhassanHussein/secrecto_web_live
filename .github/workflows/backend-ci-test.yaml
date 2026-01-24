@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
       security-events: write
       packages: write # Required to push to GHCR
 
@@ -38,12 +37,12 @@ jobs:
       - name: Set Image Tag
         run: |
           echo "IMAGE_TAG=ghcr.io/${{ env.REPO_LC }}/backend:${{ github.sha }}" >> ${GITHUB_ENV}
-          echo "IMAGE_LATEST_TAG=ghcr.io/${{ env.REPO_LC }}/backend:latest" >> ${GITHUB_ENV}
+          echo "IMAGE_TAG_LATEST=ghcr.io/${{ env.REPO_LC }}/backend:latest" >> ${GITHUB_ENV}
      
       # 5. Build Docker Image
       - name: Build 
         run: |
-          docker build -t ${{ env.IMAGE_TAG }} -t ${{ env.IMAGE_LATEST_TAG }} ./backend
+          docker build -t ${{ env.IMAGE_TAG }} -t ${{ env.IMAGE_TAG_LATEST }} ./backend
 
       # 6. Security Vulnerability Scan (DevOps Responsibility)
       # This scans the libraries inside your container for known hacks/vulnerabilities
@@ -70,28 +69,38 @@ jobs:
       - name: Push
         run: |
           docker push ${{ env.IMAGE_TAG }}
-          docker push ${{ env.IMAGE_LATEST_TAG }}
+          docker push ${{ env.IMAGE_TAG_LATEST }}
 
-      # 9. Automated PR Creation
-      # Only triggers if Build, Lint, and Security Scan ALL pass
-      - name: Create PR to main
-        if: success()
-        uses: peter-evans/create-pull-request@v7
+
+      # Deploy to EC2 via SSH
+      - name: Deploy Backend to EC2 via SSH
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          token: ${{ secrets.PAT_TOKEN }}
-          commit-message: "chore: backend build & security checks passed"
-          branch: auto-merge-backend-ci-test-to-main-v1
-          base: main
-          title: "🚀 Production Ready: Backend Update"
-          body: |
-            ### Automated Quality Gate Report ✅
-            The following checks passed on the `test` branch:
-            - [x] **Dockerfile Linting:** Optimized and secure.
-            - [x] **Docker Build:** Image built successfully.
-            - [x] **Security Scan:** No High or Critical vulnerabilities found.
-            The image `${{ env.IMAGE_TAG }}` passed all checks.
- 
-            *This PR was generated automatically by the DevOps Pipeline.*
-          labels: |
-            automated
-            security-verified
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: REPO_LC 
+          script: |
+            echo "🚀 Starting Deployment..."
+
+            # 1. Login to GHCR
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # 2. Navigate to project and update docker-compose file
+            #cd ${{ env.REPO_LC }}
+            cd ${{ secrets.EC2_PROJECT_PATH }}
+            git pull origin test
+            
+            # 3. Pull the PRE-BUILT image from GHCR
+            # This is much faster than building!
+            docker pull ghcr.io/${{ env.REPO_LC }}/backend:latest
+            
+            # 4. Restart the service using the new image
+            # We export the variable so docker-compose.yml can see it
+            export BACKEND_IMAGE="ghcr.io/${{ env.REPO_LC }}/backend:latest"
+            docker-compose up -d backend
+            
+            # 5. Clean up old images to save disk space
+            docker image prune -f           
+            
+            echo "✅ Backend deployment completed successfully!"

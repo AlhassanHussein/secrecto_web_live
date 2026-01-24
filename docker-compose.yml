@@ -25,7 +25,7 @@ services:
   # Connects to SQLite database mounted via volume
   saytruth-api:
     
-    image: ${BACKEND_IMAGE:-ghcr.io/alhassanhussein/secrecto_web_live/backend:latest}
+    image: ${BACKEND_IMAGE}
       
     container_name: saytruth-backend
     env_file:
