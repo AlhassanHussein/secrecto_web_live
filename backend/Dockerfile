@@ -1,5 +1,5 @@
 FROM python:3.12-slim
-
+# Metadata
 LABEL maintainer="python.hassan@gmail.com" \
       description="SayTruth Backend API" \
       version="1.0"
