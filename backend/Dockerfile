@@ -9,9 +9,9 @@ WORKDIR /app/backend
 # Pinning curl to a version common in python:3.11-slim (Debian Bookworm)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    curl=7.88.1-10+deb12u8 && \
+    curl=8.18.0 && \
     rm -rf /var/lib/apt/lists/*
-
+    
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
