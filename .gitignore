@@ -5,6 +5,9 @@
 .env_dev
 .env_prod
 
+
+.features
+
 # Logs
 logs
 *.log
