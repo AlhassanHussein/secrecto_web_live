@@ -30,6 +30,6 @@ app.include_router(links.router, prefix="/api/links", tags=["links"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 
-@app.get("/health", tags=["health"])
+@app.get("/health", tags=["health"], summary="Health check")
 async def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "healthy  "}
