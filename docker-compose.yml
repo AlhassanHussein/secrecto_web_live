@@ -23,7 +23,7 @@ services:
   # 2. Backend Container (FastAPI)
   # Provides REST API endpoints for auth, messages, links, users, friends
   # Connects to SQLite database mounted via volume
-  saytruth-api:
+  backend-api:
     
     image: ${BACKEND_IMAGE}
       

@@ -96,7 +96,7 @@ jobs:
             # 4. Restart the service using the new image
             # We export the variable so docker-compose.yml can see it
             export BACKEND_IMAGE="ghcr.io/${{ env.REPO_LC }}/backend:latest"
-            docker-compose up -d backend
+            docker-compose up -d 
             
             # 5. Clean up old images to save disk space
             docker image prune -f           
