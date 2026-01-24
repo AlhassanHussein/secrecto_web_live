@@ -1,4 +1,4 @@
-ffastapi>=0.118,<0.120
+fastapi>=0.118,<0.120
 starlette>=0.40,<0.42
 uvicorn[standard]==0.24.0
 sqlalchemy==2.0.23
