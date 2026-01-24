@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+FROM python:3.15.0a5-slim-trixie
+
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -10,8 +11,6 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     curl=* \
-    build-essential=* \
-    python3-dev=* && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
