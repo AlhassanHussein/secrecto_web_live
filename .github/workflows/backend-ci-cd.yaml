@@ -83,7 +83,9 @@ jobs:
 
             # 1. Login to GHCR
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
+            mkdir -p ~/deployments/saytruth-backend-test
+            mkdir -p ~/deployments/saytruth-backend-test/logs
+            mkdir hello
             # 2. Navigate to project and update docker-compose file
             cd ${{ secrets.EC2_PROJECT_PATH }}
             git fetch --all
