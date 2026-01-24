@@ -6,9 +6,6 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend-ci-cd.yaml'
-#
-# Note: This workflow tests the backend Docker build, linting, and security scanning.
-# If all checks pass, it creates a PR to main for deployment.
 
 jobs:
   build-and-verify:
