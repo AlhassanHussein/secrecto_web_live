@@ -80,7 +80,7 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
           commit-message: "chore: backend build & security checks passed"
-          branch: auto-merge-backend-ci-test-to-main
+          branch: auto-merge-backend-ci-test-to-main-v1
           base: main
           title: "🚀 Production Ready: Backend Update"
           body: |
