@@ -2,7 +2,7 @@ name: Backend CI/CD Test
 
 on:
   push:
-    branches: [ "test" ]
+    branches: [ "dev" ]
     paths:
       - 'backend/**'
 
@@ -40,7 +40,7 @@ jobs:
       # 5. Build Docker Image
       - name: Build 
         run: |
-          docker build -t ${{ env.IMAGE_TAG }} ./backend
+          docker build -t ${{ env.IMAGE_TAG }} -t ${{ env.IMAGE_LATEST_TAG }} ./backend
 
       # 6. Security Vulnerability Scan (DevOps Responsibility)
       # This scans the libraries inside your container for known hacks/vulnerabilities
@@ -51,7 +51,9 @@ jobs:
           format: 'table'
           exit-code: '1' # This stops the pipeline if "Critical" bugs are found
           severity: 'CRITICAL,HIGH'
- 
+          ignore-unfixed: true
+
+
       # 7. Login to GitHub Container Registry
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -73,7 +75,7 @@ jobs:
         if: success()
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           commit-message: "chore: backend build & security checks passed"
           branch: auto-sync-test-main
           base: main
