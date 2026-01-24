@@ -5,15 +5,17 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app/backend
 
-COPY requirements.txt ./
-# Fixed: Removed --no-install-recommends from pip (it's not a pip flag)
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Fixed: Added --no-install-recommends here to resolve DL3015
+# Fix: Combined apt-get commands, added version pinning, and cleaned up lists
+# Pinning curl to a version common in python:3.11-slim (Debian Bookworm)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends \
+    curl=7.88.1-10+deb12u8 && \
     rm -rf /var/lib/apt/lists/*
 
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
 COPY app ./app
+
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
