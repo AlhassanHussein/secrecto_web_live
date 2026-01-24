@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-LABEL maintainer="your-team@example.com" \
+LABEL maintainer="python.hassan@gmail.com" \
       description="SayTruth Backend API" \
       version="1.0"
 

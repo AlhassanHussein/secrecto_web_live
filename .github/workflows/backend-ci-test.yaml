@@ -75,7 +75,7 @@ jobs:
         if: success()
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           commit-message: "chore: backend build & security checks passed"
           branch: auto-sync-test-main
           base: main
