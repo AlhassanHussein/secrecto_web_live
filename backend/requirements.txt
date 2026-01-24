@@ -1,5 +1,5 @@
-fastapi==0.111.0
-starlette==0.40.0
+ffastapi>=0.118,<0.120
+starlette>=0.40,<0.42
 uvicorn[standard]==0.24.0
 sqlalchemy==2.0.23
 pydantic-settings==2.0.3
