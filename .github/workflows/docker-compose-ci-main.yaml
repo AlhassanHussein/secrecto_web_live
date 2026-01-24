@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'docker-compose.yml'
-
+ 
 jobs:
   deploy:
     runs-on: ubuntu-latest

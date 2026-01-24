@@ -27,7 +27,7 @@ jobs:
             
             # Navigate to project directory
             cd ${{ secrets.EC2_PROJECT_PATH }}
-            
+             
             # Pull latest code from main branch
             echo "📥 Pulling latest code from main..."
             git pull origin main
