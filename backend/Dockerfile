@@ -1,23 +1,48 @@
 FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+# Metadata labels
+LABEL maintainer="your-team@example.com" \
+      description="SayTruth Backend API" \
+      version="1.0"
 
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Set working directory
 WORKDIR /app/backend
 
-# Use Debian snapshot for reproducible builds
-RUN echo "deb http://snapshot.debian.org/archive/debian/20250101T000000Z bookworm main" > /etc/apt/sources.list && \
-    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99snapshot
-
+# Install system dependencies and clean up in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# Create non-root user for security
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -u 1001 appuser && \
+    chown -R appuser:appuser /app
+
+# Copy requirements first for better layer caching
+COPY --chown=appuser:appuser requirements.txt .
+
+# Install Python dependencies
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+# Copy application code
+COPY --chown=appuser:appuser app ./app
 
+# Switch to non-root user
+USER appuser
+
+# Expose application port
 EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health', timeout=5)" || exit 1
+
+# Run application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
